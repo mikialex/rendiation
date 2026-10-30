@@ -5,26 +5,26 @@ name = "rendiation-scene-indirect-attribute-mesh-lod"
 version = "0.1.0"
 
 [dependencies]
-database = { path = "../../../utility/database" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+database = { workspace = true }
+fast-hash-collection = { workspace = true }
 log = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-mesh-simplification = { path = "../../../content/mesh/simplification" }
-rendiation-scene-core = { path = "../../core" }
-rendiation-mesh-core = { path = "../../../content/mesh/core" }
-rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
-rendiation-scene-rendering-gpu-indirect = { path = "../../rendering/gpu-indirect" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-simplification = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-scene-rendering-gpu-base = { workspace = true }
+rendiation-scene-rendering-gpu-indirect = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-device-parallel-compute = { workspace = true }
 
-rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
-rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
-query-hook = { path = "../../../utility/query-hook" }
-rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-hook-utils = { workspace = true }
+query-hook = { workspace = true }
+rendiation-webgpu-midc-downgrade = { workspace = true }
 bytemuck = { workspace = true }
 dyn-clone = { workspace = true }
 

@@ -5,8 +5,8 @@ name = "rendiation-view-override-model"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../math/algebra" }
-webgpu = { package = "rendiation-webgpu", path = "../../platform/graphics/webgpu" }
+rendiation-algebra = { workspace = true }
+webgpu = { workspace = true }
 
 [lints]
 workspace = true

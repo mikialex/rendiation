@@ -7,14 +7,14 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true }
 
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
 
-rendiation-space-algorithm = { path = "../../space" }
+rendiation-space-algorithm = { workspace = true }
 
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
+fast-hash-collection = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
 smallvec = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }

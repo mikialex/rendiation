@@ -5,12 +5,12 @@ name = "rendiation-mesh-lod-graph"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-mesh-core = { path = "../core" }
-rendiation-mesh-segmentation = { path = "../segmentation" }
-rendiation-mesh-simplification = { path = "../simplification" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-mesh-segmentation = { workspace = true }
+rendiation-mesh-simplification = { workspace = true }
+fast-hash-collection = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }
 

@@ -4,8 +4,8 @@ name = "database-tracing"
 version = "0.0.1"
 
 [dependencies]
-database = { path = "../database" }
-fast-hash-collection = { path = "../fast-hash-collection" }
+database = { workspace = true }
+fast-hash-collection = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
 parking_lot = { workspace = true }

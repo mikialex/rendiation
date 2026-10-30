@@ -5,30 +5,30 @@ name = "rendiation-scene-rendering-gpu-indirect"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-database = { path = "../../../utility/database" }
+fast-hash-collection = { workspace = true }
+database = { workspace = true }
 log = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-mesh-core = { path = "../../../content/mesh/core" }
-rendiation-mesh-simplification = { path = "../../../content/mesh/simplification" }
-rendiation-scene-core = { path = "../../core" }
-rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-lighting-gpu-system = { path = "../../../content/lighting/gpu-system/lighting-system" }
-rendiation-lighting-punctual = { path = "../../../content/lighting/punctual" }
-rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-mesh-simplification = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-scene-rendering-gpu-base = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-lighting-gpu-system = { workspace = true }
+rendiation-lighting-punctual = { workspace = true }
+rendiation-device-parallel-compute = { workspace = true }
 
-rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../../platform/graphics/webgpu-frame" }
-rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
-rendiation-webgpu-midc-downgrade = { path = "../../../platform/graphics/webgpu-midc-downgrade" }
-rendiation-webgpu-texture-as-buffer = { path = "../../../platform/graphics/webgpu-texture-as-buffer" }
-rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
+rendiation-webgpu-hook-utils = { workspace = true }
+rendiation-webgpu-midc-downgrade = { workspace = true }
+rendiation-webgpu-texture-as-buffer = { workspace = true }
+rendiation-lighting-transport = { workspace = true }
 bytemuck = { workspace = true }
 dyn-clone = { workspace = true }
 

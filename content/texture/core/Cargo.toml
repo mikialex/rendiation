@@ -5,10 +5,10 @@ name = "rendiation-texture-core"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-texture-types = { path = "../types" }
+fast-hash-collection = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-texture-types = { workspace = true }
 wgpu-types = { workspace = true }
 bytemuck = { workspace = true }
 facet = { workspace = true }

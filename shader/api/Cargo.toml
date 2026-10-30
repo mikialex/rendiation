@@ -7,16 +7,16 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true }
 half = { workspace = true }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+fast-hash-collection = { workspace = true }
 once_cell = { workspace = true }
 paste = { workspace = true }
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-shader-derives = { path = "../derive" }
+rendiation-algebra = { workspace = true }
+rendiation-shader-derives = { workspace = true }
 parking_lot = { workspace = true }
 wgpu-types = { workspace = true }
 dyn-clone = { workspace = true }
 disqualified = { workspace = true }
-anymap = { path = "../../utility/anymap" }
+anymap = { workspace = true }
 
 [lints]
 workspace = true

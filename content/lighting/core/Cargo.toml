@@ -5,8 +5,8 @@ name = "rendiation-lighting-core"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
 
 [lints]
 workspace = true

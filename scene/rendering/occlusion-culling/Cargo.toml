@@ -6,17 +6,17 @@ version = "0.1.0"
 
 [dependencies]
 log = { workspace = true }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-device-parallel-compute = { path = "../../../shader/parallel-compute" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-fast-down-sampling-2d = { path = "../../../shader/fast-down-sampling-2d" }
-rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../../platform/graphics/webgpu-frame" }
-hook = { path = "../../../utility/hook" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-scene-rendering-gpu-base = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-device-parallel-compute = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-fast-down-sampling-2d = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
+hook = { workspace = true }
 
 [lints]
 workspace = true

@@ -5,10 +5,10 @@ name = "rendiation-webgpu-buffer-allocator"
 version = "0.1.0"
 
 [dependencies]
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-webgpu = { path = "../webgpu" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-growable-range-allocator = { path = "../../../utility/growable-range-allocator" }
+rendiation-shader-api = { workspace = true }
+rendiation-webgpu = { workspace = true }
+fast-hash-collection = { workspace = true }
+growable-range-allocator = { workspace = true }
 slab = { workspace = true }
 
 [lints]

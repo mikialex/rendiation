@@ -5,11 +5,11 @@ name = "rendiation-gizmo"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-scene-core = { path = "../../scene/core" }
-rendiation-gui-3d = { path = "../gui-3d" }
-rendiation-mesh-generator = { path = "../../content/mesh/generator" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-gui-3d = { workspace = true }
+rendiation-mesh-generator = { workspace = true }
 
 [lints]
 workspace = true

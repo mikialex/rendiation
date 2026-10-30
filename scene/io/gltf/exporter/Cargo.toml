@@ -13,15 +13,15 @@ gltf-json = { version = "1.4.1", features = [
 serde_json = "1.0.143"
 png = "*"
 log = { workspace = true }
-database = { path = "../../../../utility/database" }
-query = { path = "../../../../utility/query" }
-rendiation-algebra = { path = "../../../../math/algebra" }
-rendiation-geometry = { path = "../../../../math/geometry" }
-rendiation-mesh-core = { path = "../../../../content/mesh/core" }
-rendiation-scene-core = { path = "../../../core" }
-rendiation-texture-core = { path = "../../../../content/texture/core" }
-rendiation-texture-exporter = { path = "../../../../content/texture/exporter" }
-fast-hash-collection = { path = "../../../../utility/fast-hash-collection" }
+database = { workspace = true }
+query = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-texture-exporter = { workspace = true }
+fast-hash-collection = { workspace = true }
 
 [lints]
 workspace = true

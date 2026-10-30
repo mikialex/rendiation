@@ -4,8 +4,8 @@ name = "storage"
 version = "0.0.1"
 
 [dependencies]
-arena = { path = "../arena" }
-fast-hash-collection = { path = "../fast-hash-collection" }
+arena = { workspace = true }
+fast-hash-collection = { workspace = true }
 
 [lints]
 workspace = true

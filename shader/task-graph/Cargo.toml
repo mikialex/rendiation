@@ -5,17 +5,17 @@ name = "rendiation-device-task-graph"
 version = "0.1.0"
 
 [dependencies]
-rendiation-shader-derives = { path = "../derive" }
-rendiation-shader-api = { path = "../api" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-rendiation-device-parallel-compute = { path = "../parallel-compute" }
-rendiation-webgpu-virtual-typed-combine-buffer = { path = "../../platform/graphics/webgpu-virtual-typed-combine-buffer" }
+rendiation-shader-derives = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-webgpu = { workspace = true }
+fast-hash-collection = { workspace = true }
+rendiation-device-parallel-compute = { workspace = true }
+rendiation-webgpu-virtual-typed-combine-buffer = { workspace = true }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
 futures = { workspace = true }
 bytemuck = { workspace = true }
-anymap = { path = "../../utility/anymap" }
+anymap = { workspace = true }
 
 pollster = { workspace = true } # used in examples
 

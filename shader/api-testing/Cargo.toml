@@ -7,9 +7,9 @@ version = "0.1.0"
 # All the tests are unit tests of this crate, so the normal build of this crate is empty and never
 # affects the compile time of other crates. Only the GPU execution tests require a GPU adapter.
 [dev-dependencies]
-rendiation-shader-api = { path = "../api" }
-rendiation-shader-backend-naga = { path = "../backends/naga" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-backend-naga = { workspace = true }
+rendiation-webgpu = { workspace = true }
 pollster = { workspace = true }
 naga = { workspace = true }
 parking_lot = { workspace = true }

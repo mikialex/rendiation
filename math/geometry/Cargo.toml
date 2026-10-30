@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = { workspace = true }
-rendiation-algebra = { path = "../algebra" }
+rendiation-algebra = { workspace = true }
 facet = { workspace = true }
 serde = { workspace = true }
 

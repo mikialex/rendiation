@@ -8,7 +8,7 @@ parking_lot = { workspace = true }
 futures = { workspace = true }
 pin-project = { workspace = true }
 slab = { workspace = true }
-storage = { path = "../storage" }
+storage = { workspace = true }
 
 
 [lints]

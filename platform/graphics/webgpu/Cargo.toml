@@ -6,17 +6,17 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = { workspace = true }
-heap-tools = { path = "../../../utility/heap-tools" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+heap-tools = { workspace = true }
+fast-hash-collection = { workspace = true }
 futures = { workspace = true }
 naga = { workspace = true }
 disqualified = { workspace = true }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-backend-naga = { path = "../../../shader/backends/naga" }
-rendiation-texture-types = { path = "../../../content/texture/types" }
+rendiation-algebra = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-backend-naga = { workspace = true }
+rendiation-texture-types = { workspace = true }
 thiserror = { workspace = true }
 wgpu = { workspace = true }
 wgpu-types = { workspace = true }

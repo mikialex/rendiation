@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = { workspace = true }
-rendiation-algebra = { path = "../../math/algebra" }
+rendiation-algebra = { workspace = true }
 
 [lints]
 workspace = true

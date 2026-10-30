@@ -6,16 +6,16 @@ name = "rendiation-webgpu-hook-utils"
 version = "0.1.0"
 
 [dependencies]
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
-rendiation-webgpu = { path = "../webgpu" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+rendiation-shader-api = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-texture-gpu-base = { workspace = true }
+rendiation-webgpu = { workspace = true }
+fast-hash-collection = { workspace = true }
 parking_lot = { workspace = true }
-hook = { path = "../../../utility/hook" }
-query-hook = { path = "../../../utility/query-hook" }
-database = { path = "../../../utility/database" }
-growable-range-allocator = { path = "../../../utility/growable-range-allocator" }
+hook = { workspace = true }
+query-hook = { workspace = true }
+database = { workspace = true }
+growable-range-allocator = { workspace = true }
 futures = { workspace = true }
 
 # used for debug sparse writes not overlap

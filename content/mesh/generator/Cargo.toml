@@ -5,9 +5,9 @@ name = "rendiation-mesh-generator"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-mesh-core = { path = "../core" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-core = { workspace = true }
 
 [lints]
 workspace = true

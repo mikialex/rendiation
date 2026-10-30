@@ -13,13 +13,13 @@ futures = { workspace = true, features = ["thread-pool"] }
 
 rand = { workspace = true }
 
-database = { path = "../../utility/database" }
-database-tracing = { path = "../../utility/database-tracing" }
-viewer-content-api-trace-info = { path = "../viewer-content-api-trace-info" }
+database = { workspace = true }
+database-tracing = { workspace = true }
+viewer-content-api-trace-info = { workspace = true }
 dirs = "4.0.0"
 parking_lot = { workspace = true }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-heap-tools = { path = "../../utility/heap-tools" }
+fast-hash-collection = { workspace = true }
+heap-tools = { workspace = true }
 image = "*"
 disqualified = { workspace = true }
 serde = { workspace = true }
@@ -31,35 +31,35 @@ png = "*"
 rmp-serde = { workspace = true }
 pollster = { workspace = true }
 toml = { workspace = true }
-event-source = { path = "../../utility/event-source" }
-rendiation-shader-api = { path = "../../shader/api" }
-rendiation-shader-library = { path = "../../shader/library" }
-rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
-rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
-rendiation-animation = { path = "../../content/animation" }
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-controller = { path = "../../extension/controller" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-parametric-rendering = { path = "../../extension/parametric-rendering" }
-rendiation-gizmo = { path = "../../extension/gizmo" }
-rendiation-gui-3d = { path = "../../extension/gui-3d" }
-rendiation-lighting-punctual = { path = "../../content/lighting/punctual" }
-rendiation-mesh-generator = { path = "../../content/mesh/generator" }
-rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
-rendiation-scene-gltf-exporter = { path = "../../scene/io/gltf/exporter" }
-rendiation-scene-gltf-loader = { path = "../../scene/io/gltf/loader" }
-rendiation-scene-obj-loader = { path = "../../scene/io/obj/loader" }
-rendiation-mesh-simplification = { path = "../../content/mesh/simplification" }
-rendiation-mesh-segmentation = { path = "../../content/mesh/segmentation" }
-rendiation-csg-sdf-expression = { path = "../../extension/csg-sdf-expression" }
-rendiation-texture-core = { path = "../../content/texture/core" }
-rendiation-texture-gpu-base = { path = "../../content/texture/gpu-base" }
-rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
-rendiation-texture-loader = { path = "../../content/texture/loader" }
-rendiation-texture-exporter = { path = "../../content/texture/exporter" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
-rendiation-viewer-content ={ path = "../viewer-content" }
+event-source = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-scene-rendering-gpu-base = { workspace = true }
+rendiation-infinity-primitive = { workspace = true }
+rendiation-animation = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-controller = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-parametric-rendering = { workspace = true }
+rendiation-gizmo = { workspace = true }
+rendiation-gui-3d = { workspace = true }
+rendiation-lighting-punctual = { workspace = true }
+rendiation-mesh-generator = { workspace = true }
+rendiation-scene-geometry-query = { workspace = true }
+rendiation-scene-gltf-exporter = { workspace = true }
+rendiation-scene-gltf-loader = { workspace = true }
+rendiation-scene-obj-loader = { workspace = true }
+rendiation-mesh-simplification = { workspace = true }
+rendiation-mesh-segmentation = { workspace = true }
+rendiation-csg-sdf-expression = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-texture-gpu-base = { workspace = true }
+rendiation-texture-gpu-process = { workspace = true }
+rendiation-texture-loader = { workspace = true }
+rendiation-texture-exporter = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
+rendiation-viewer-content = { workspace = true, default-features = true }
 rfd = "0.15.4"
 tracing = { workspace = true }
 tracing-subscriber = "0.3.20"

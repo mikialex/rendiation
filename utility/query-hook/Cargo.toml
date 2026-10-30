@@ -4,13 +4,13 @@ name = "query-hook"
 version = "0.0.1"
 
 [dependencies]
-query = { path = "../query" }
-fast-hash-collection = { path = "../fast-hash-collection" }
+query = { workspace = true }
+fast-hash-collection = { workspace = true }
 futures = { workspace = true }
-storage = { path = "../storage" }
+storage = { workspace = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
-hook = { path = "../hook" }
+hook = { workspace = true }
 bumpalo = { workspace = true }
 humansize = { workspace = true }
 

@@ -5,9 +5,9 @@ name = "dynamic-bvh"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-geometry = { path = "../../math/geometry" }
+fast-hash-collection = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
 smallvec = { workspace = true }
 ordered-float = "4.6"
 static_assertions = "1.1"

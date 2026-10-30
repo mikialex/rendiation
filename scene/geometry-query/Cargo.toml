@@ -5,12 +5,12 @@ name = "rendiation-scene-geometry-query"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-mesh-core = { path = "../../content/mesh/core" }
-rendiation-texture-core = { path = "../../content/texture/core" }
-rendiation-scene-core = { path = "../core" }
-database = { path = "../../utility/database" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-scene-core = { workspace = true }
+database = { workspace = true }
 bytemuck = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }

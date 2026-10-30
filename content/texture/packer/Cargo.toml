@@ -5,10 +5,10 @@ name = "rendiation-texture-packer"
 version = "0.1.0"
 
 [dependencies]
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
-rendiation-texture-core = { path = "../core" }
+fast-hash-collection = { workspace = true }
+rendiation-texture-core = { workspace = true }
 etagere = "0.2.6"
-query = { path = "../../../utility/query" }
+query = { workspace = true }
 serde = { workspace = true }
 
 [lints]

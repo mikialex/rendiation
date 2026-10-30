@@ -5,8 +5,8 @@ name = "rendiation-shader-library"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-shader-api = { path = "../api" }
+rendiation-algebra = { workspace = true }
+rendiation-shader-api = { workspace = true }
 
 [lints]
 workspace = true

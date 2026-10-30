@@ -14,24 +14,24 @@ futures = { workspace = true }
 pollster = { workspace = true }
 bytemuck = { workspace = true }
 log = { workspace = true }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-rendiation-viewer-content = { path = "../viewer-content", default-features = false }
+fast-hash-collection = { workspace = true }
+rendiation-viewer-content = { workspace = true }
 
 # these dep declare are necessary as we are export c type from them
-rendiation-mesh-core = { path = "../../content/mesh/core" }
-rendiation-occ-style-draw-control = { path = "../../extension/occ-style-draw-control" }
-rendiation-occ-style-material = { path = "../../extension/occ-style-material" }
-rendiation-text-3d = { path = "../../extension/text-3d" }
-rendiation-texture-gpu-process = { path = "../../content/texture/gpu-process" }
-rendiation-dynamic-bvh-scene = { path = "../../extension/dynamic-bvh-scene" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
+rendiation-mesh-core = { workspace = true }
+rendiation-occ-style-draw-control = { workspace = true }
+rendiation-occ-style-material = { workspace = true }
+rendiation-text-3d = { workspace = true }
+rendiation-texture-gpu-process = { workspace = true }
+rendiation-dynamic-bvh-scene = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
 wgpu-types = { workspace = true }
 ordered-float = "4.6"
 
-database = { path = "../../utility/database" }
-database-tracing = { path = "../../utility/database-tracing" }
-viewer-content-api-trace-info = { path = "../viewer-content-api-trace-info" }
+database = { workspace = true }
+database-tracing = { workspace = true }
+viewer-content-api-trace-info = { workspace = true }
 
 serde = { workspace = true }
 rmp-serde = { workspace = true }

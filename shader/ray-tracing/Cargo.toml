@@ -5,20 +5,20 @@ name = "rendiation-device-ray-tracing"
 version = "0.1.0"
 
 [dependencies]
-anymap = { path = "../../utility/anymap" }
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-shader-derives = { path = "../derive" }
-rendiation-shader-api = { path = "../api" }
-rendiation-shader-library = { path = "../library" }
-rendiation-device-task-graph = { path = "../task-graph" }
-rendiation-device-parallel-compute = { path = "../parallel-compute" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-webgpu-buffer-allocator = { path = "../../platform/graphics/webgpu-buffer-allocator" }
-rendiation-space-algorithm = { path = "../../content/space" }
-rendiation-webgpu-virtual-typed-combine-buffer = { path = "../../platform/graphics/webgpu-virtual-typed-combine-buffer" }
-rendiation-texture-core = { path = "../../content/texture/core" }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
+anymap = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-shader-derives = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-device-task-graph = { workspace = true }
+rendiation-device-parallel-compute = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-buffer-allocator = { workspace = true }
+rendiation-space-algorithm = { workspace = true }
+rendiation-webgpu-virtual-typed-combine-buffer = { workspace = true }
+rendiation-texture-core = { workspace = true }
+fast-hash-collection = { workspace = true }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
 futures = { workspace = true }
@@ -27,8 +27,8 @@ bytemuck = { workspace = true }
 pollster = { workspace = true } # used in examples
 
 [dev-dependencies]
-rendiation-mesh-generator = { path = "../../content/mesh/generator" }
-rendiation-mesh-core = { path = "../../content/mesh/core" }
+rendiation-mesh-generator = { workspace = true }
+rendiation-mesh-core = { workspace = true }
 
 [lints]
 workspace = true

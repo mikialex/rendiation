@@ -5,12 +5,12 @@ name = "rendiation-lighting-ltc"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-texture-core = { path = "../../texture/core" }
-rendiation-lighting-gpu-system = { path = "../gpu-system/lighting-system" }
-rendiation-lighting-transport = { path = "../transport" }
+rendiation-algebra = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-lighting-gpu-system = { workspace = true }
+rendiation-lighting-transport = { workspace = true }
 
 [dev-dependencies]
 half = { version = "*", features = ["bytemuck"] }

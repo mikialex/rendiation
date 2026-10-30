@@ -4,7 +4,7 @@ name = "heap-tools"
 version = "0.0.1"
 
 [dependencies]
-fast-hash-collection = { path = "../fast-hash-collection" }
+fast-hash-collection = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 humansize = { workspace = true }

@@ -5,24 +5,24 @@ name = "rendiation-scene-rendering-gpu-gles"
 version = "0.1.0"
 
 [dependencies]
-rendiation-geometry = { path = "../../../math/geometry" }
+rendiation-geometry = { workspace = true }
 parking_lot = { workspace = true }
-database = { path = "../../../utility/database" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+database = { workspace = true }
+fast-hash-collection = { workspace = true }
 log = { workspace = true }
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-mesh-core = { path = "../../../content/mesh/core" }
-rendiation-scene-core = { path = "../../core" }
-rendiation-scene-rendering-gpu-base = { path = "../../rendering/gpu-base" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-texture-core = { path = "../../../content/texture/core" }
-rendiation-texture-gpu-base = { path = "../../../content/texture/gpu-base" }
+rendiation-algebra = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-scene-rendering-gpu-base = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-texture-gpu-base = { workspace = true }
 
-rendiation-lighting-transport = { path = "../../../content/lighting/transport" }
-rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../../platform/graphics/webgpu-frame" }
-rendiation-webgpu-hook-utils = { path = "../../../platform/graphics/webgpu-hook-utils" }
+rendiation-lighting-transport = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
+rendiation-webgpu-hook-utils = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 

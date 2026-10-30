@@ -5,18 +5,18 @@ name = "rendiation-plane-array-clip"
 version = "0.1.0"
 
 [dependencies]
-database = { path = "../../utility/database" }
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-infinity-primitive = { path = "../../extension/infinity-primitive" }
-rendiation-device-parallel-compute = { path = "../../shader/parallel-compute" }
-rendiation-mesh-core = { path = "../../content/mesh/core" }
-rendiation-scene-core = { path = "../../scene/core" }
-rendiation-scene-rendering-gpu-base = { path = "../../scene/rendering/gpu-base" }
-rendiation-shader-api = { path = "../../shader/api" }
-rendiation-shader-library = { path = "../../shader/library" }
-rendiation-webgpu = { path = "../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../platform/graphics/webgpu-frame" }
-rendiation-webgpu-hook-utils = { path = "../../platform/graphics/webgpu-hook-utils" }
+database = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-infinity-primitive = { workspace = true }
+rendiation-device-parallel-compute = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-scene-rendering-gpu-base = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
+rendiation-webgpu-hook-utils = { workspace = true }
 
 [lints]
 workspace = true

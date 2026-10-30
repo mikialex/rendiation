@@ -5,9 +5,9 @@ name = "rendiation-shader-backend-naga"
 version = "0.1.0"
 
 [dependencies]
-rendiation-shader-api = { path = "../../api" }
+rendiation-shader-api = { workspace = true }
 naga = { workspace = true }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+fast-hash-collection = { workspace = true }
 
 [lints]
 workspace = true

@@ -5,19 +5,19 @@ name = "rendiation-gui-3d"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../math/algebra" }
-rendiation-geometry = { path = "../../math/geometry" }
-rendiation-scene-core = { path = "../../scene/core" }
-rendiation-shader-api = { path = "../../shader/api" }
-rendiation-mesh-core = { path = "../../content/mesh/core" }
-rendiation-scene-geometry-query = { path = "../../scene/geometry-query" }
-rendiation-mesh-generator = { path = "../../content/mesh/generator" }
-hook = { path = "../../utility/hook" }
-database = { path = "../../utility/database" }
-fast-hash-collection = { path = "../../utility/fast-hash-collection" }
-rendiation-platform-event-input = { path = "../../platform/event-input" }
-rendiation-view-override-model = { path = "../view-override-model" }
-rendiation-wide-line = { path = "../wide-line" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-scene-geometry-query = { workspace = true }
+rendiation-mesh-generator = { workspace = true }
+hook = { workspace = true }
+database = { workspace = true }
+fast-hash-collection = { workspace = true }
+rendiation-platform-event-input = { workspace = true }
+rendiation-view-override-model = { workspace = true }
+rendiation-wide-line = { workspace = true }
 
 [lints]
 workspace = true

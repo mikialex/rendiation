@@ -12,14 +12,14 @@ harness = false
 name = "global_access"
 
 [dependencies]
-fast-hash-collection = { path = "../fast-hash-collection" }
-event-source = { path = "../event-source" }
-query = { path = "../query" }
-auto-shrink-arena = { path = "../auto-shrink-arena" }
-query-hook = { path = "../query-hook" }
+fast-hash-collection = { workspace = true }
+event-source = { workspace = true }
+query = { workspace = true }
+auto-shrink-arena = { workspace = true }
+query-hook = { workspace = true }
 futures = { workspace = true }
 smallvec = { workspace = true }
-storage = { path = "../storage" }
+storage = { workspace = true }
 parking_lot = { workspace = true }
 dyn-clone = { workspace = true }
 facet = { workspace = true }

@@ -5,13 +5,13 @@ name = "rendiation-texture-gpu-process"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-texture-core = { path = "../core" }
-rendiation-texture-gpu-base = { path = "../gpu-base" }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-webgpu = { path = "../../../platform/graphics/webgpu" }
-rendiation-webgpu-frame = { path = "../../../platform/graphics/webgpu-frame" }
+rendiation-algebra = { workspace = true }
+rendiation-texture-core = { workspace = true }
+rendiation-texture-gpu-base = { workspace = true }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-webgpu = { workspace = true }
+rendiation-webgpu-frame = { workspace = true }
 rand = { workspace = true }
 
 [lints]

@@ -7,8 +7,8 @@ version = "0.1.0"
 [dependencies]
 image = { workspace = true }
 png = "*"
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-texture-core = { path = "../core" }
+rendiation-algebra = { workspace = true }
+rendiation-texture-core = { workspace = true }
 thiserror = { workspace = true }
 
 [lints]

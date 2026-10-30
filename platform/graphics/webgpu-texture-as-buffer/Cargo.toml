@@ -5,12 +5,12 @@ name = "rendiation-webgpu-texture-as-buffer"
 version = "0.1.0"
 
 [dependencies]
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-webgpu = { path = "../webgpu" }
+rendiation-shader-api = { workspace = true }
+rendiation-webgpu = { workspace = true }
 parking_lot = { workspace = true }
 
 [dev-dependencies]
-rendiation-webgpu-virtual-typed-combine-buffer = { path = "../webgpu-virtual-typed-combine-buffer" }
+rendiation-webgpu-virtual-typed-combine-buffer = { workspace = true }
 pollster = { workspace = true }
 
 [lints]

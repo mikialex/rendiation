@@ -4,10 +4,10 @@ name = "rendiation-uri-streaming"
 version = "0.0.1"
 
 [dependencies]
-fast-hash-collection = { path = "../fast-hash-collection" }
-rendiation-abstract-uri-data = { path = "../abstract-uri-data" }
-query = { path = "../query" }
-query-hook = { path = "../query-hook" }
+fast-hash-collection = { workspace = true }
+rendiation-abstract-uri-data = { workspace = true }
+query = { workspace = true }
+query-hook = { workspace = true }
 futures = { workspace = true }
 mapped_futures = "0.2.1"
 parking_lot = { workspace = true }

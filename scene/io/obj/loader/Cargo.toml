@@ -6,11 +6,11 @@ version = "0.1.0"
 
 [dependencies]
 image = { workspace = true }
-database = { path = "../../../../utility/database" }
-rendiation-algebra = { path = "../../../../math/algebra" }
-rendiation-mesh-core = { path = "../../../../content/mesh/core" }
-rendiation-scene-core = { path = "../../../core" }
-rendiation-texture-loader = { path = "../../../../content/texture/loader" }
+database = { workspace = true }
+rendiation-algebra = { workspace = true }
+rendiation-mesh-core = { workspace = true }
+rendiation-scene-core = { workspace = true }
+rendiation-texture-loader = { workspace = true }
 smallvec = { workspace = true }
 thiserror = { workspace = true }
 tobj = "4.0.0"

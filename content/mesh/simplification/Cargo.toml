@@ -5,12 +5,12 @@ name = "rendiation-mesh-simplification"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = { path = "../../../math/algebra" }
-rendiation-geometry = { path = "../../../math/geometry" }
-rendiation-mesh-core = { path = "../core" }
+rendiation-algebra = { workspace = true }
+rendiation-geometry = { workspace = true }
+rendiation-mesh-core = { workspace = true }
 
 [dev-dependencies]
-rendiation-mesh-test-util = { path = "../test-util" }
+rendiation-mesh-test-util = { workspace = true }
 
 [lints]
 workspace = true

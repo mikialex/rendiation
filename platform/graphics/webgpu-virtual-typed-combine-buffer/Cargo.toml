@@ -6,10 +6,10 @@ name = "rendiation-webgpu-virtual-typed-combine-buffer"
 version = "0.1.0"
 
 [dependencies]
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-webgpu-hook-utils = { path = "../webgpu-hook-utils" }
-rendiation-webgpu = { path = "../webgpu" }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+rendiation-shader-api = { workspace = true }
+rendiation-webgpu-hook-utils = { workspace = true }
+rendiation-webgpu = { workspace = true }
+fast-hash-collection = { workspace = true }
 parking_lot = { workspace = true }
 
 [lints]

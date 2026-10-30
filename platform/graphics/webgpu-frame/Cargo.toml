@@ -7,14 +7,14 @@ version = "0.1.0"
 [dependencies]
 bytemuck = { workspace = true }
 disqualified = { workspace = true }
-fast-hash-collection = { path = "../../../utility/fast-hash-collection" }
+fast-hash-collection = { workspace = true }
 futures = { workspace = true }
-hook = { path = "../../../utility/hook" }
+hook = { workspace = true }
 parking_lot = { workspace = true }
-rendiation-shader-api = { path = "../../../shader/api" }
-rendiation-shader-library = { path = "../../../shader/library" }
-rendiation-webgpu = { path = "../webgpu" }
-reuse-pool = { path = "../../../utility/reuse-pool" }
+rendiation-shader-api = { workspace = true }
+rendiation-shader-library = { workspace = true }
+rendiation-webgpu = { workspace = true }
+reuse-pool = { workspace = true }
 
 [dev-dependencies]
 pollster = { workspace = true }
