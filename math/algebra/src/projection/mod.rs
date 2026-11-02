@@ -1,3 +1,6 @@
+//! The camera projections. The projection matrices map the view space (camera looks toward -z)
+//! into the OpenGL NDC first, then into the target NDC by the [`NDCSpaceMapper`].
+
 use crate::*;
 
 mod perspective;
@@ -6,7 +9,8 @@ mod orth;
 pub use orth::*;
 
 impl<T: Scalar> Mat4<T> {
-  /// check if the mat is the perspective, assume the mat is the common projection(perspective or orthographic) in opengl ndc
+  /// check if the mat is the perspective, assume the mat is the common projection(perspective or
+  /// orthographic). This works for any [`NDCSpaceMapper`] that only remaps the z.
   pub fn check_is_perspective_matrix_assume_common_projection(&self) -> bool {
     self.c4 == -T::one()
   }
@@ -20,11 +24,13 @@ impl<T: Scalar> Mat4<T> {
     }
   }
 
-  /// Calculate how many screen pixel match one world unit at given distance.
+  /// Calculate how many screen pixel match one world unit at given distance (in view space, toward
+  /// the view direction).
   ///
-  /// If the matrix originated from the common projection(perspective or orth), the simpler version should be used.
+  /// If the matrix originated from the common projection(perspective or orth), the simpler version
+  /// should be used.
   pub fn pixels_per_unit(&self, inverse_of_self: Self, distance: T, view_height_in_pixel: T) -> T {
-    let z_in_ndc = *self * Vec3::new(T::zero(), T::zero(), distance);
+    let z_in_ndc = *self * Vec3::new(T::zero(), T::zero(), -distance);
     let z_in_ndc = z_in_ndc.z;
     let ndc_top = inverse_of_self * Vec3::new(T::zero(), T::one(), z_in_ndc);
     let ndc_bottom = inverse_of_self * Vec3::new(T::zero(), -T::one(), z_in_ndc);
@@ -46,7 +52,7 @@ fn test_pixel_per_unit() {
   let mat_result = mat.pixels_per_unit(inv_mat, distance, view_height_in_pixel);
   let result = p.pixels_per_unit(distance, view_height_in_pixel);
 
-  assert!(mat_result - result < 0.001);
+  assert!((mat_result - result).abs() < 0.001);
 
   let p = OrthographicProjection::<f32>::default();
   let mat = p.compute_projection_mat(&OpenGLxNDC);
@@ -55,5 +61,5 @@ fn test_pixel_per_unit() {
   let mat_result = mat.pixels_per_unit(inv_mat, distance, view_height_in_pixel);
   let result = p.pixels_per_unit(distance, view_height_in_pixel);
 
-  assert!(mat_result - result < 0.001);
+  assert!((mat_result - result).abs() < 0.001);
 }

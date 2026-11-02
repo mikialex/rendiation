@@ -2,6 +2,10 @@ use std::ops::{Add, Div, Mul};
 
 use crate::*;
 
+/// The column major 3x3 matrix, `a`, `b`, `c` are the columns.
+///
+/// It is used as the linear transform in 3d space, or the homogeneous (affine or projective)
+/// transform in 2d space.
 #[repr(C)]
 #[rustfmt::skip]
 #[derive(Serialize, Deserialize)]
@@ -13,10 +17,51 @@ pub struct Mat3<T> {
 }
 
 impl<T> Mat3<T> {
-  pub fn map<X: Clone>(self, f: impl Fn(T) -> X) -> Mat3<X> {
+  /// Create the matrix column by column: `m11, m12, m13` is the first column.
+  #[rustfmt::skip]
+  pub const fn new(
+    m11: T, m12: T, m13: T,
+    m21: T, m22: T, m23: T,
+    m31: T, m32: T, m33: T,
+  ) -> Self {
+    Self {
+      a1: m11, a2: m12, a3: m13,
+      b1: m21, b2: m22, b3: m23,
+      c1: m31, c2: m32, c3: m33,
+    }
+  }
+
+  /// Map each element into another type.
+  pub fn map<X>(self, f: impl Fn(T) -> X) -> Mat3<X> {
     let arr: [T; 9] = self.into();
-    let arr = arr.map(f);
-    arr.into()
+    arr.map(f).into()
+  }
+
+  /// The upper left 2x2 part, which is the linear part of the 2d affine transform.
+  pub fn to_mat2(self) -> Mat2<T> {
+    #[rustfmt::skip]
+    Mat2 {
+      a1: self.a1, a2: self.a2,
+      b1: self.b1, b2: self.b2,
+    }
+  }
+}
+
+impl<T: Copy> Mat3<T> {
+  /// The first column, the transformed x axis.
+  pub fn right(&self) -> Vec3<T> {
+    Vec3::new(self.a1, self.a2, self.a3)
+  }
+
+  /// The second column, the transformed y axis.
+  pub fn up(&self) -> Vec3<T> {
+    Vec3::new(self.b1, self.b2, self.b3)
+  }
+
+  /// The third column, the transformed z axis. Note, when used as the 2d affine transform, this
+  /// is the translation.
+  pub fn forward(&self) -> Vec3<T> {
+    Vec3::new(self.c1, self.c2, self.c3)
   }
 }
 
@@ -62,6 +107,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
     }
     .into()
   }
+  /// Mat3 is considered as the 2d homogeneous transform, so only the upper left 2x2 is used.
   fn max_scale(&self) -> T {
     let x = self.a1 * self.a1 + self.a2 * self.a2;
     let y = self.b1 * self.b1 + self.b2 * self.b2;
@@ -72,6 +118,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
 
+/// Transform the 2d point, including the perspective divide.
 impl<T> Mul<Vec2<T>> for Mat3<T>
 where
   T: Copy + Add<Output = T> + Mul<Output = T> + Div<Output = T> + num_traits::One,
@@ -109,23 +156,6 @@ where
   }
 }
 
-#[test]
-fn mul() {
-  let cgmath_mat1 = cgmath::Matrix3::<f32>::from_translation(cgmath::vec2(1., 2.));
-  let cgmath_mat2 = cgmath::Matrix3::<f32>::from_nonuniform_scale(3., -2.);
-  let cgmath_point = cgmath::vec3(1., 2., 3.);
-  let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
-  let cgmath_r: [f32; 3] = *cgmath_r.as_ref();
-
-  let math_mat1 = Mat3::<f32>::translate((1., 2.));
-  let math_mat2 = Mat3::<f32>::scale((3., -2.));
-  let math_point = Vec3::new(1., 2., 3.);
-  let math_r = math_mat1 * math_mat2 * math_point;
-  let math_r: [f32; 3] = math_r.into();
-
-  assert_eq!(cgmath_r, math_r)
-}
-
 impl<T> Mul for Mat3<T>
 where
   T: Copy + Mul<Output = T> + Add<Output = T>,
@@ -153,34 +183,9 @@ where
 
 impl<T> Mat3<T>
 where
-  T: Copy,
-{
-  pub fn new(m11: T, m12: T, m13: T, m21: T, m22: T, m23: T, m31: T, m32: T, m33: T) -> Self {
-    #[rustfmt::skip]
-    Self {
-      a1: m11, a2: m12, a3: m13,
-      b1: m21, b2: m22, b3: m23,
-      c1: m31, c2: m32, c3: m33,
-    }
-  }
-
-  pub fn right(&self) -> Vec3<T> {
-    Vec3::new(self.a1, self.a2, self.a3)
-  }
-
-  pub fn up(&self) -> Vec3<T> {
-    Vec3::new(self.b1, self.b2, self.b3)
-  }
-
-  pub fn forward(&self) -> Vec3<T> {
-    Vec3::new(self.c1, self.c2, self.c3)
-  }
-}
-
-impl<T> Mat3<T>
-where
   T: Scalar,
 {
+  /// The 3d rotation around the x axis.
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sin_cos();
 
@@ -204,6 +209,7 @@ where
     )
   }
 
+  /// The 3d rotation around the y axis.
   pub fn rotate_y(theta: T) -> Self {
     let (s, c) = theta.sin_cos();
 
@@ -227,6 +233,8 @@ where
     )
   }
 
+  /// The 3d rotation around the z axis, which is also the 2d counter clockwise rotation in
+  /// homogeneous 2d space.
   pub fn rotate_z(theta: T) -> Self {
     let (s, c) = theta.sin_cos();
 
@@ -250,6 +258,7 @@ where
     )
   }
 
+  /// The 3d rotation around the `axis`, the axis should be normalized.
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
     let (s, c) = theta.sin_cos();
 
@@ -282,6 +291,7 @@ where
     )
   }
 
+  /// The 2d non uniform scale in homogeneous 2d space.
   pub fn scale(scale: impl Into<Vec2<T>>) -> Self {
     let Vec2 { x, y } = scale.into();
     let (a1, a2, a3) = (x, T::zero(), T::zero());
@@ -296,6 +306,7 @@ where
     )
   }
 
+  /// The 2d translation in homogeneous 2d space.
   pub fn translate(translate: impl Into<Vec2<T>>) -> Self {
     let Vec2 { x, y } = translate.into();
     let (a1, a2, a3) = (T::one(), T::zero(), T::zero());
@@ -345,6 +356,7 @@ where
   }
 }
 
+/// The rotation matrix of the quaternion, the quaternion should be normalized.
 impl<T: Scalar> From<Quat<T>> for Mat3<T> {
   fn from(q: Quat<T>) -> Self {
     let (xs, ys, zs) = (q.x * T::two(), q.y * T::two(), q.z * T::two());
@@ -362,30 +374,10 @@ impl<T: Scalar> From<Quat<T>> for Mat3<T> {
   }
 }
 
-impl<T> Mat3<T> {
-  pub fn to_mat2(self) -> Mat2<T> {
-    #[rustfmt::skip]
-    Mat2 {
-      a1: self.a1, a2: self.a2,
-      b1: self.b1, b2: self.b2,
-    }
-  }
-}
-
 impl<T: Scalar> Mat3<T> {
+  /// The matrix to transform the normal vector when self is used as the 2d affine transform,
+  /// which is the inverse transpose of the linear part.
   pub fn to_normal_matrix(self) -> Mat2<T> {
     self.to_mat2().inverse_or_identity().transpose()
-  }
-}
-
-impl<T> AsRef<Mat3<T>> for Mat3<T> {
-  fn as_ref(&self) -> &Mat3<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Mat3<T>> for Mat3<T> {
-  fn as_mut(&mut self) -> &mut Mat3<T> {
-    self
   }
 }

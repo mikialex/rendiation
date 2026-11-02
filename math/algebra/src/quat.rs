@@ -3,6 +3,12 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::*;
 
+/// The quaternion `xi + yj + zk + w`, mainly used as the 3d rotation.
+///
+/// The rotation quaternion should be normalized, most of the rotation related methods assume
+/// that. The memory layout is `x, y, z, w`, same as glam and gltf.
+///
+/// Note the `Default` is all zero, use [`Quat::identity`] for the identity rotation.
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
@@ -14,6 +20,8 @@ pub struct Quat<T> {
 }
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Quat<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Quat<T> {}
+
+impl_as_ref_self!(Quat);
 
 impl<T> Neg for Quat<T>
 where
@@ -79,6 +87,7 @@ where
   }
 }
 
+/// The Hamilton product, as rotation `a * b` applies `b` first.
 impl<T> Mul for Quat<T>
 where
   T: Scalar,
@@ -113,20 +122,13 @@ where
   }
 }
 
-impl<T> Quat<T>
-where
-  T: Copy,
-{
+impl<T> Quat<T> {
   /// Creates a new Quat from multiple components
-  pub fn new(x: T, y: T, z: T, w: T) -> Self {
+  pub const fn new(x: T, y: T, z: T, w: T) -> Self {
     Self { x, y, z, w }
   }
-}
 
-impl<T> Quat<T>
-where
-  T: Scalar,
-{
+  /// Map each component into another type.
   pub fn map<X>(self, f: impl Fn(T) -> X) -> Quat<X> {
     Quat {
       x: f(self.x),
@@ -135,7 +137,18 @@ where
       w: f(self.w),
     }
   }
+}
 
+impl<T> Quat<T>
+where
+  T: Scalar,
+{
+  /// The identity rotation.
+  pub fn identity() -> Self {
+    Self::new(T::zero(), T::zero(), T::zero(), T::one())
+  }
+
+  /// The rotation around the x axis.
   pub fn rotation_x(theta: T) -> Self {
     let theta_half = theta * T::half();
 
@@ -147,6 +160,7 @@ where
     }
   }
 
+  /// The rotation around the y axis.
   pub fn rotation_y(theta: T) -> Self {
     let theta_half = theta * T::half();
 
@@ -158,6 +172,7 @@ where
     }
   }
 
+  /// The rotation around the z axis.
   pub fn rotation_z(theta: T) -> Self {
     let theta_half = theta * T::half();
 
@@ -169,6 +184,7 @@ where
     }
   }
 
+  /// The rotation around the `axis`, the axis should be normalized.
   pub fn rotation(axis: Vec3<T>, theta: T) -> Self {
     let (s, c) = (theta * T::half()).sin_cos();
 
@@ -180,11 +196,29 @@ where
     }
   }
 
+  /// The shortest arc rotation that rotates direction `a` to direction `b`, both of them should
+  /// be normalized.
+  ///
+  /// If `a` and `b` are opposite, the rotation is 180 degrees around an arbitrary axis that is
+  /// perpendicular to `a`.
   pub fn direction(a: &Vec3<T>, b: &Vec3<T>) -> Self {
     let axis = a.cross(*b);
     let cos_angle = a.dot(*b);
 
     let t0 = T::one() + cos_angle;
+    if t0 <= T::eval::<{ scalar_transmute(1e-6) }>() {
+      // pick the axis that least aligned with a to compute the perpendicular direction
+      let other = if a.x.abs() < a.y.abs() && a.x.abs() < a.z.abs() {
+        Vec3::new(T::one(), T::zero(), T::zero())
+      } else if a.y.abs() < a.z.abs() {
+        Vec3::new(T::zero(), T::one(), T::zero())
+      } else {
+        Vec3::new(T::zero(), T::zero(), T::one())
+      };
+      let axis = a.cross(other).normalize();
+      return Self::new(axis.x, axis.y, axis.z, T::zero());
+    }
+
     let t1 = (t0 + t0).sqrt().recip();
     let t2 = (t0 + t0) * t1 * T::half();
 
@@ -196,6 +230,7 @@ where
     }
   }
 
+  /// The 4d dot product.
   pub fn dot(&self, b: Self) -> T {
     self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
   }
@@ -208,10 +243,12 @@ where
     self.length2().sqrt()
   }
 
+  /// The 4d euclidean distance, note it's not the rotation angle difference.
   pub fn distance(&self, b: Self) -> T {
     (*self - b).length()
   }
 
+  /// Return the unit quaternion, the zero quaternion is normalized into the identity.
   #[must_use]
   pub fn normalize(&self) -> Self {
     let mag_sq = self.length2();
@@ -223,6 +260,7 @@ where
     }
   }
 
+  /// The rotation axis of the unit quaternion, the x axis is returned if there is no rotation.
   pub fn axis(&self) -> Vec3<T> {
     let sin_theta_over2_sq = T::one() - self.w * self.w;
     if sin_theta_over2_sq <= T::zero() {
@@ -235,10 +273,13 @@ where
     v * Vec3::new(inv_sqrt, inv_sqrt, inv_sqrt)
   }
 
+  /// The rotation angle of the unit quaternion in 0 to 2PI.
   pub fn angle(&self) -> T {
-    self.w.acos() * T::two()
+    // clamp to avoid nan caused by precision error
+    self.w.max(-T::one()).min(T::one()).acos() * T::two()
   }
 
+  /// The conjugate, which is the inverse rotation for the unit quaternion.
   #[must_use]
   pub fn conjugate(&self) -> Self {
     Self {
@@ -249,14 +290,24 @@ where
     }
   }
 
+  /// The inverse rotation, assume self is normalized so this is same as the conjugate.
   #[must_use]
   pub fn inverse(&self) -> Self {
     self.conjugate()
   }
+
+  /// Rotate the vector, self should be normalized.
+  pub fn rotate_vec(&self, v: Vec3<T>) -> Vec3<T> {
+    // v + 2w(q x v) + 2q x (q x v)
+    let q = Vec3::new(self.x, self.y, self.z);
+    let t = q.cross(v) * T::two();
+    v + t * self.w + q.cross(t)
+  }
 }
 
+/// Convert the rotation matrix to quaternion, the matrix should be the pure rotation (orthonormal
+/// with positive determinant).
 impl<T: Scalar> From<Mat3<T>> for Quat<T> {
-  /// assume mat3 is unscaled pure rotation
   fn from(mat: Mat3<T>) -> Self {
     #[rustfmt::skip]
     let Mat3 { a1, a2, a3, b1, b2, b3, c1, c2, c3 } = mat;
@@ -300,8 +351,10 @@ impl<T: Scalar> From<Mat3<T>> for Quat<T> {
   }
 }
 
-/// http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/
-/// input should be normalized, output is normalized
+/// <http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/>
+///
+/// The input should be normalized, the output is normalized. The interpolation always takes the
+/// shortest path.
 impl<T> Slerp<T> for Quat<T>
 where
   T: Scalar,
@@ -356,10 +409,7 @@ where
   }
 }
 
-impl<T> From<Vec4<T>> for Quat<T>
-where
-  T: Copy,
-{
+impl<T> From<Vec4<T>> for Quat<T> {
   fn from(v: Vec4<T>) -> Self {
     Self {
       x: v.x,
@@ -376,9 +426,14 @@ impl<T> From<[T; 4]> for Quat<T> {
     Self { x, y, z, w }
   }
 }
-impl<T> Into<[T; 4]> for Quat<T> {
-  fn into(self) -> [T; 4] {
-    [self.x, self.y, self.z, self.w]
+impl<T> From<Quat<T>> for [T; 4] {
+  fn from(q: Quat<T>) -> Self {
+    [q.x, q.y, q.z, q.w]
+  }
+}
+impl<T> From<Quat<T>> for Vec4<T> {
+  fn from(q: Quat<T>) -> Self {
+    Vec4::new(q.x, q.y, q.z, q.w)
   }
 }
 
@@ -393,20 +448,8 @@ impl<T> From<(T, T, T, T)> for Quat<T> {
   }
 }
 
-impl<T> Into<(T, T, T, T)> for Quat<T> {
-  fn into(self) -> (T, T, T, T) {
-    (self.x, self.y, self.z, self.w)
-  }
-}
-
-impl<T> AsRef<Quat<T>> for Quat<T> {
-  fn as_ref(&self) -> &Quat<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Quat<T>> for Quat<T> {
-  fn as_mut(&mut self) -> &mut Quat<T> {
-    self
+impl<T> From<Quat<T>> for (T, T, T, T) {
+  fn from(q: Quat<T>) -> Self {
+    (q.x, q.y, q.z, q.w)
   }
 }

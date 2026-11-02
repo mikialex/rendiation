@@ -7,8 +7,8 @@ description: >
   and SpaceEntity. Use when writing generic math code over T: Scalar, working with
   vectors/matrices, or needing to create float literals in generic contexts.
 metadata:
-  version: "1.0"
-  updated: "2026-05-18"
+  version: "1.1"
+  updated: "2026-11-02"
 ---
 
 The `math/algebra` crate is the foundational math library. Import everything with:
@@ -90,7 +90,21 @@ let v = Vec4::new(x, y, z, w);
 | `VectorSpace<T>` | `Add`, `Sub`, `Mul<T>`, `Div<T>` | [vec/dimension.rs](math/algebra/src/vec/dimension.rs) |
 | `Functor` | `f_map(f)` | [lib.rs](math/algebra/src/lib.rs) |
 
-Vector arithmetic works element-wise: `a + b`, `a - b`, `a * scalar`, `a / scalar`, `scalar * a`.
+Vector arithmetic works element-wise: `a + b`, `a - b`, `-a`, `a * scalar`, `a / scalar`, `scalar * a`.
+
+## Conventions
+
+- All matrices are column major: fields `a*` / `b*` / `c*` / `d*` are the columns, same memory
+  layout as WGSL and glam. `Mat*::new(...)` takes the arguments column by column.
+- Column vectors: `a * b * v` applies `b` first. `Mat4 * Vec3` and `Mat3 * Vec2` transform a point
+  with the perspective divide.
+- Right handed rotation (`rotate_x/y/z`, `Quat::rotation_*`), angles in radians unless wrapped in
+  `Deg`. `Mat2::rotate_z` is the counter clockwise 2d rotation.
+- Projection matrices map the view space (camera looks toward -z) into OpenGL NDC first, then
+  through `NDCSpaceMapper` (`OpenGLxNDC`, `WebGPUxNDC`).
+- `Mat4::lookat` returns the camera world matrix, not the view matrix.
+- `SquareMatrixDimension<D>` marks the space dimension the matrix is the homogeneous transform of:
+  `Mat2` is 1, `Mat3` is 2, `Mat4` is 3.
 
 ## Matrix types
 
@@ -100,11 +114,19 @@ Non square matrices are named `MatCxR` (C columns and R rows, column major, same
 defined in [mat/non_square.rs](math/algebra/src/mat/non_square.rs): `Mat2x3`, `Mat2x4`, `Mat3x2`,
 `Mat3x4`, `Mat4x2` are mainly shader data types and only provide `new_from_column`, the
 component-wise operators and array conversions, `Mat4x3<T>` is also used as the affine transform
-and has the transform helpers.
+and has the transform helpers: `Mat4x3 * Vec3` transforms a point (affine), `Mat4x3 * Vec4`
+returns `Vec3` like WGSL, `From<Mat4>` keeps the translation and drops the last row (the matrix
+must be affine).
+
+`Mat4::decompose()` returns `(translate, quat, scale)`, a mirror (negative determinant) is put into
+a negative `scale.x`; `Mat4::compose` is its inverse.
 
 ## Quaternion
 
-`Quat<T>` — quaternion for rotations.
+`Quat<T>` — quaternion for rotations, layout `x, y, z, w`. Note `Quat::default()` is all zero, use
+`Quat::identity()`. `q.rotate_vec(v)` rotates a vector, `q1 * q2` applies `q2` first,
+`Quat::direction(&a, &b)` is the shortest arc from `a` to `b` (handles opposite directions),
+`Quat::from(Mat3)` expects a pure rotation, `inverse()` assumes normalized input.
 
 ## f32/f64 conversion
 
@@ -137,3 +159,10 @@ pub trait SpaceEntity<T: Scalar, const D: usize> {
 | [math/algebra/src/vec/vec4.rs](math/algebra/src/vec/vec4.rs) | `Vec4` struct |
 | [math/algebra/src/mat/](math/algebra/src/mat/) | `Mat2`, `Mat3`, `Mat4`, `Mat4x3`, the other non square matrices |
 | [math/algebra/src/quat.rs](math/algebra/src/quat.rs) | `Quat` |
+| [math/algebra/src/projection/](math/algebra/src/projection/) | `PerspectiveProjection`, `OrthographicProjection`, projection matrices |
+
+## Tests
+
+Cross checked against glam (dev dependency only) in
+[math/algebra/tests/algebra/](math/algebra/tests/algebra/), with deterministic random inputs from
+`util::Rng`. Add a glam comparison there when adding new math functions.

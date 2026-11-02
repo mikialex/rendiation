@@ -1,13 +1,14 @@
-use std::ops::{Add, Div, Mul};
+//! The non square matrices, named as MatCxR (C columns and R rows) like WGSL. They are mainly
+//! used as the shader data types, so only the basic component-wise operations are provided, except
+//! the [`Mat4x3`] which is also used as the compact affine transform.
+
+use std::ops::{Add, Mul};
 
 use crate::*;
 
-// The non square matrices, named as MatCxR (C columns and R rows) like WGSL. They are mainly used
-// as the shader data types, so only the basic component-wise operations are provided, except the
-// Mat4x3 which is also used as the affine transform.
-
 macro_rules! impl_non_square_matrix {
   ($MatrixN: ident, $rows: expr, { $($column: ident: [$($field: ident),+]),+ }) => {
+    /// The column major non square matrix, see the module document.
     #[repr(C)]
     #[derive(Serialize, Deserialize)]
     #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
@@ -19,21 +20,10 @@ macro_rules! impl_non_square_matrix {
     unsafe impl<T: bytemuck::Pod> bytemuck::Pod for $MatrixN<T> {}
 
     impl<T> $MatrixN<T> {
+      /// Create the matrix from the columns.
       pub fn new_from_column($($column: [T; $rows]),+) -> Self {
         $(let [$($field),+] = $column;)+
         Self { $($($field),+),+ }
-      }
-    }
-
-    impl<T> AsRef<$MatrixN<T>> for $MatrixN<T> {
-      fn as_ref(&self) -> &$MatrixN<T> {
-        self
-      }
-    }
-
-    impl<T> AsMut<$MatrixN<T>> for $MatrixN<T> {
-      fn as_mut(&mut self) -> &mut $MatrixN<T> {
-        self
       }
     }
   };
@@ -56,6 +46,7 @@ impl_non_square_matrix!(Mat4x3, 3, {
 });
 
 impl<T> Mat4x3<T> {
+  /// The linear part of the affine transform.
   pub fn to_mat3(self) -> Mat3<T> {
     #[rustfmt::skip]
     Mat3 {
@@ -67,41 +58,47 @@ impl<T> Mat4x3<T> {
 }
 
 impl<T: Scalar> Mat4x3<T> {
+  /// The matrix to transform the normal vector, see [`Mat4::to_normal_matrix`].
   pub fn to_normal_matrix(self) -> Mat3<T> {
     self.to_mat3().inverse_or_identity().transpose()
   }
 }
 
+/// Transform the 3d point by the affine transform.
 impl<T> Mul<Vec3<T>> for Mat4x3<T>
 where
-  T: Copy + Add<Output = T> + Mul<Output = T> + Div<Output = T> + num_traits::One,
+  T: Copy + Add<Output = T> + Mul<Output = T>,
 {
   type Output = Vec3<T>;
 
   fn mul(self, v: Vec3<T>) -> Vec3<T> {
-    let v = self * v.expand_with_one();
-    Vec3::new(v.x, v.y, v.z) / v.w
+    Vec3 {
+      x: v.x * self.a1 + v.y * self.b1 + v.z * self.c1 + self.d1,
+      y: v.x * self.a2 + v.y * self.b2 + v.z * self.c2 + self.d2,
+      z: v.x * self.a3 + v.y * self.b3 + v.z * self.c3 + self.d3,
+    }
   }
 }
 
+/// The plain matrix vector multiplication, same as WGSL: `mat4x3 * vec4 = vec3`.
 impl<T> Mul<Vec4<T>> for Mat4x3<T>
 where
   T: Copy + Add<Output = T> + Mul<Output = T>,
 {
-  type Output = Vec4<T>;
+  type Output = Vec3<T>;
 
-  fn mul(self, v: Vec4<T>) -> Vec4<T> {
-    Vec4 {
+  fn mul(self, v: Vec4<T>) -> Vec3<T> {
+    Vec3 {
       x: v.x * self.a1 + v.y * self.b1 + v.z * self.c1 + v.w * self.d1,
       y: v.x * self.a2 + v.y * self.b2 + v.z * self.c2 + v.w * self.d2,
       z: v.x * self.a3 + v.y * self.b3 + v.z * self.c3 + v.w * self.d3,
-      w: v.w,
     }
   }
 }
 
 #[rustfmt::skip]
-impl<T: Sized> Mat4x3<T> {
+impl<T> Mat4x3<T> {
+  /// Create the matrix column by column: `m11, m12, m13` is the first column.
   pub const fn new(
     m11: T, m12: T, m13: T,
     m21: T, m22: T, m23: T,
@@ -121,6 +118,7 @@ impl<T> Mat4x3<T>
 where
   T: Scalar,
 {
+  /// See [`Mat4::from_orth_basis_and_position`].
   pub fn from_orth_basis_and_position(forward: Vec3<T>, up: Vec3<T>, position: Vec3<T>) -> Self {
     let right = forward.cross(up);
     #[rustfmt::skip]
@@ -132,22 +130,27 @@ where
     )
   }
 
+  /// The first column, the transformed x axis.
   pub fn right(&self) -> Vec3<T> {
     Vec3::new(self.a1, self.a2, self.a3)
   }
 
+  /// The second column, the transformed y axis.
   pub fn up(&self) -> Vec3<T> {
     Vec3::new(self.b1, self.b2, self.b3)
   }
 
+  /// The third column, the transformed z axis.
   pub fn forward(&self) -> Vec3<T> {
     Vec3::new(self.c1, self.c2, self.c3)
   }
 
+  /// The translation.
   pub fn position(&self) -> Vec3<T> {
     Vec3::new(self.d1, self.d2, self.d3)
   }
 
+  /// The length of each transformed axis.
   pub fn get_scale(&self) -> Vec3<T> {
     let sx = Vec3::new(self.a1, self.a2, self.a3).length();
     let sy = Vec3::new(self.b1, self.b2, self.b3).length();
@@ -156,22 +159,24 @@ where
   }
 }
 
+/// Drop the last row, the matrix must be affine (the last row is `0, 0, 0, 1`).
 impl<T: Scalar> From<Mat4<T>> for Mat4x3<T> {
   fn from(m: Mat4<T>) -> Self {
-    assert_eq!(m.a4, T::zero());
-    assert_eq!(m.b4, T::zero());
-    assert_eq!(m.c4, T::zero());
-    assert_eq!(m.d4, T::one());
+    debug_assert!(
+      m.a4 == T::zero() && m.b4 == T::zero() && m.c4 == T::zero() && m.d4 == T::one(),
+      "the matrix is not affine: {m:?}"
+    );
     #[rustfmt::skip]
     Self {
-      a1: m.a1,      a2: m.a2,      a3: m.a3,
-      b1: m.b1,      b2: m.b2,      b3: m.b3,
-      c1: m.c1,      c2: m.c2,      c3: m.c3,
-      d1: T::zero(), d2: T::zero(), d3: T::zero(),
+      a1: m.a1, a2: m.a2, a3: m.a3,
+      b1: m.b1, b2: m.b2, b3: m.b3,
+      c1: m.c1, c2: m.c2, c3: m.c3,
+      d1: m.d1, d2: m.d2, d3: m.d3,
     }
   }
 }
 
+/// Use the 3d linear transform as the linear part, the translation is zero.
 impl<T: Scalar> From<Mat3<T>> for Mat4x3<T> {
   fn from(m: Mat3<T>) -> Self {
     #[rustfmt::skip]

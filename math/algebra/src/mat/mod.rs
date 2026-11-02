@@ -1,3 +1,6 @@
+//! The matrix types. All matrices are column major, see the crate level document for the
+//! conventions.
+
 mod dimension;
 mod mat2;
 mod mat3;
@@ -15,9 +18,11 @@ pub use non_square::*;
 
 use crate::*;
 
+/// Short hand of `Mat2::new`, `Mat3::new` and `Mat4::new`, selected by argument count. Same as
+/// the `new` constructors, the arguments are column by column.
 #[rustfmt::skip]
-#[macro_export] 
-macro_rules! matrix { 
+#[macro_export]
+macro_rules! matrix {
   ($m11:expr, $m12:expr, 
    $m21:expr, $m22:expr) => {
     rendiation_algebra::Mat2::new(
@@ -118,6 +123,16 @@ macro_rules! impl_scalar_ops {
 impl_as_ptr!(Mat2);
 impl_as_ptr!(Mat3);
 impl_as_ptr!(Mat4);
+
+impl_as_ref_self!(Mat2);
+impl_as_ref_self!(Mat3);
+impl_as_ref_self!(Mat4);
+impl_as_ref_self!(Mat2x3);
+impl_as_ref_self!(Mat2x4);
+impl_as_ref_self!(Mat3x2);
+impl_as_ref_self!(Mat3x4);
+impl_as_ref_self!(Mat4x2);
+impl_as_ref_self!(Mat4x3);
 #[rustfmt::skip]
 impl_matrix!(Mat2 { a1, a2, b1, b2 }, 4, mat2);
 #[rustfmt::skip]

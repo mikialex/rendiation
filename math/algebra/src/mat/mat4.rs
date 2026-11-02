@@ -2,6 +2,10 @@ use std::ops::{Add, Div, Mul};
 
 use crate::*;
 
+/// The column major 4x4 matrix, `a`, `b`, `c`, `d` are the columns.
+///
+/// It is the homogeneous (affine or projective) transform in 3d space. For the affine transform,
+/// the upper left 3x3 is the linear part and the `d` column is the translation.
 #[repr(C)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq, Facet)]
@@ -14,10 +18,51 @@ pub struct Mat4<T> {
 }
 
 impl<T> Mat4<T> {
-  pub fn map<X: Clone>(self, f: impl Fn(T) -> X) -> Mat4<X> {
+  /// Create the matrix column by column: `m11, m12, m13, m14` is the first column.
+  #[rustfmt::skip]
+  pub const fn new(
+    m11: T, m12: T, m13: T, m14: T,
+    m21: T, m22: T, m23: T, m24: T,
+    m31: T, m32: T, m33: T, m34: T,
+    m41: T, m42: T, m43: T, m44: T,
+  ) -> Self {
+    Self {
+      a1: m11, a2: m12, a3: m13, a4: m14,
+      b1: m21, b2: m22, b3: m23, b4: m24,
+      c1: m31, c2: m32, c3: m33, c4: m34,
+      d1: m41, d2: m42, d3: m43, d4: m44,
+    }
+  }
+
+  /// Create the matrix from the columns.
+  pub fn new_from_column(a: [T; 4], b: [T; 4], c: [T; 4], d: [T; 4]) -> Self {
+    let [a1, a2, a3, a4] = a;
+    let [b1, b2, b3, b4] = b;
+    let [c1, c2, c3, c4] = c;
+    let [d1, d2, d3, d4] = d;
+    #[rustfmt::skip]
+    Self {
+      a1, a2, a3, a4,
+      b1, b2, b3, b4,
+      c1, c2, c3, c4,
+      d1, d2, d3, d4,
+    }
+  }
+
+  /// Map each element into another type.
+  pub fn map<X>(self, f: impl Fn(T) -> X) -> Mat4<X> {
     let arr: [T; 16] = self.into();
-    let arr = arr.map(f);
-    arr.into()
+    arr.map(f).into()
+  }
+
+  /// The upper left 3x3 part, which is the linear part of the affine transform.
+  pub fn to_mat3(self) -> Mat3<T> {
+    #[rustfmt::skip]
+    Mat3 {
+      a1: self.a1, a2: self.a2, a3: self.a3,
+      b1: self.b1, b2: self.b2, b3: self.b3,
+      c1: self.c1, c2: self.c2, c3: self.c3,
+    }
   }
 }
 
@@ -103,6 +148,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
     .into()
   }
 
+  /// Mat4 is considered as the 3d homogeneous transform, so only the upper left 3x3 is used.
   fn max_scale(&self) -> T {
     let x = self.a1 * self.a1 + self.a2 * self.a2 + self.a3 * self.a3;
     let y = self.b1 * self.b1 + self.b2 * self.b2 + self.b3 * self.b3;
@@ -111,18 +157,9 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
   }
 }
 
-impl<T> Mat4<T> {
-  pub fn to_mat3(self) -> Mat3<T> {
-    #[rustfmt::skip]
-    Mat3 {
-      a1: self.a1, a2: self.a2, a3: self.a3,
-      b1: self.b1, b2: self.b2, b3: self.b3,
-      c1: self.c1, c2: self.c2, c3: self.c3,
-    }
-  }
-}
-
 impl<T: Scalar> Mat4<T> {
+  /// The matrix to transform the normal vector, which is the inverse transpose of the linear
+  /// part. The result is not normalized, so the transformed normal should be normalized.
   pub fn to_normal_matrix(self) -> Mat3<T> {
     self.to_mat3().inverse_or_identity().transpose()
   }
@@ -131,6 +168,7 @@ impl<T: Scalar> Mat4<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat4<T> {}
 
+/// Transform the 3d point, including the perspective divide.
 impl<T> Mul<Vec3<T>> for Mat4<T>
 where
   T: Copy + Add<Output = T> + Mul<Output = T> + Div<Output = T> + num_traits::One,
@@ -201,56 +239,13 @@ where
   }
 }
 
-#[test]
-fn mul() {
-  let cgmath_mat1 = cgmath::Matrix4::<f32>::from_translation(cgmath::vec3(1., 2., 3.));
-  let cgmath_mat2 = cgmath::Matrix4::<f32>::from_nonuniform_scale(3., -2., 3.);
-  let cgmath_point = cgmath::vec4(1., 2., 3., 1.);
-  let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
-  let cgmath_r: [f32; 4] = *cgmath_r.as_ref();
-
-  let math_mat1 = Mat4::<f32>::translate((1., 2., 3.));
-  let math_mat2 = Mat4::<f32>::scale((3., -2., 3.));
-  let math_point = Vec4::new(1., 2., 3., 1.);
-  let math_r = math_mat1 * math_mat2 * math_point;
-  let math_r: [f32; 4] = math_r.into();
-
-  assert_eq!(cgmath_r, math_r)
-}
-
-#[rustfmt::skip]
-impl<T: Sized> Mat4<T> {
-  pub const fn new(
-    m11: T, m12: T, m13: T, m14: T,
-    m21: T, m22: T, m23: T, m24: T,
-    m31: T, m32: T, m33: T, m34: T,
-    m41: T, m42: T, m43: T, m44: T,
-  ) -> Self {
-    Self {
-      a1: m11, a2: m12, a3: m13, a4: m14,
-      b1: m21, b2: m22, b3: m23, b4: m24,
-      c1: m31, c2: m32, c3: m33, c4: m34,
-      d1: m41, d2: m42, d3: m43, d4: m44,
-    }
-  }
-}
-
-impl<T: Copy> Mat4<T> {
-  pub fn new_from_column(c1: [T; 4], c2: [T; 4], c3: [T; 4], c4: [T; 4]) -> Self {
-    #[rustfmt::skip]
-    Self {
-      a1: c1[0], a2: c1[1], a3: c1[2], a4: c1[3],
-      b1: c2[0], b2: c2[1], b3: c2[2], b4: c2[3],
-      c1: c3[0], c2: c3[1], c3: c3[2], c4: c3[3],
-      d1: c4[0], d2: c4[1], d3: c4[2], d4: c4[3],
-    }
-  }
-}
-
 impl<T> Mat4<T>
 where
   T: Scalar,
 {
+  /// Create the affine transform whose axes are `right`, `up`, `forward` and the origin is
+  /// `position`, `right` is computed by `forward.cross(up)`. The `forward` and `up` should be
+  /// orthonormal.
   pub fn from_orth_basis_and_position(forward: Vec3<T>, up: Vec3<T>, position: Vec3<T>) -> Self {
     let right = forward.cross(up);
     #[rustfmt::skip]
@@ -262,22 +257,27 @@ where
     )
   }
 
+  /// The first column, the transformed x axis.
   pub fn right(&self) -> Vec3<T> {
     Vec3::new(self.a1, self.a2, self.a3)
   }
 
+  /// The second column, the transformed y axis.
   pub fn up(&self) -> Vec3<T> {
     Vec3::new(self.b1, self.b2, self.b3)
   }
 
+  /// The third column, the transformed z axis.
   pub fn forward(&self) -> Vec3<T> {
     Vec3::new(self.c1, self.c2, self.c3)
   }
 
+  /// The translation of the affine transform.
   pub fn position(&self) -> Vec3<T> {
     Vec3::new(self.d1, self.d2, self.d3)
   }
 
+  /// Return the matrix with the translation set to zero.
   pub fn remove_position(&self) -> Mat4<T> {
     let mut m = *self;
     m.d1 = T::zero();
@@ -286,6 +286,8 @@ where
     m
   }
 
+  /// The length of each transformed axis. The sign of the scale (mirror) can not be recovered
+  /// here, see [`Mat4::decompose`].
   pub fn get_scale(&self) -> Vec3<T> {
     let sx = Vec3::new(self.a1, self.a2, self.a3).length();
     let sy = Vec3::new(self.b1, self.b2, self.b3).length();
@@ -298,6 +300,7 @@ impl<T> Mat4<T>
 where
   T: Scalar,
 {
+  /// The rotation around the x axis.
   pub fn rotate_x(theta: T) -> Self {
     let (sin, cos) = theta.sin_cos();
 
@@ -310,6 +313,7 @@ where
     )
   }
 
+  /// The rotation around the y axis.
   pub fn rotate_y(theta: T) -> Self {
     let (sin, cos) = theta.sin_cos();
 
@@ -322,6 +326,7 @@ where
     )
   }
 
+  /// The rotation around the z axis.
   pub fn rotate_z(theta: T) -> Self {
     let (sin, cos) = theta.sin_cos();
 
@@ -334,6 +339,7 @@ where
     )
   }
 
+  /// The rotation around the `axis`, the axis should be normalized.
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
     let (sin, cos) = theta.sin_cos();
 
@@ -355,6 +361,7 @@ where
     )
   }
 
+  /// The non uniform scale.
   pub fn scale(s: impl Into<Vec3<T>>) -> Self {
     let Vec3 { x, y, z } = s.into();
     let zero = T::zero();
@@ -369,6 +376,7 @@ where
     )
   }
 
+  /// The translation.
   pub fn translate(s: impl Into<Vec3<T>>) -> Self {
     let Vec3 { x, y, z } = s.into();
     let zero = T::zero();
@@ -383,6 +391,7 @@ where
     )
   }
 
+  /// The cheaper inverse that assumes self is affine (the last row is `0, 0, 0, 1`).
   pub fn transform_inverse(&self) -> Option<Self> {
     let m = self;
     let det = (m.a1 * m.b2 - m.a2 * m.b1) * (m.c3) - (m.a1 * m.b3 - m.a3 * m.b1) * (m.c2)
@@ -425,6 +434,11 @@ where
     })
   }
 
+  /// Create the camera's world matrix (not the view matrix, the view matrix is the inverse of
+  /// it) that locates at `eye` and looks at `center`. Like OpenGL, the camera looks toward its
+  /// local -z, and the local +y is aligned to `up` as much as possible.
+  ///
+  /// The `up` should not be parallel to the view direction.
   pub fn lookat(eye: Vec3<T>, center: Vec3<T>, up: Vec3<T>) -> Self {
     let mut z = eye - center;
     z = z.normalize();
@@ -444,9 +458,10 @@ where
     )
   }
 
+  /// Extract the rotation part of the TRS composed matrix, see [`Mat4::decompose`].
   #[must_use]
   pub fn extract_rotation_mat(&self) -> Self {
-    let scale_inv = self.get_scale().map(|v| T::one() / v);
+    let scale_inv = self.get_signed_scale().map(|v| T::one() / v);
     let mut mat = self.to_mat3();
     mat.a1 *= scale_inv.x;
     mat.a2 *= scale_inv.x;
@@ -499,6 +514,7 @@ where
   }
 }
 
+/// Expand the affine transform by adding the `0, 0, 0, 1` last row.
 impl<T: Scalar> From<Mat4x3<T>> for Mat4<T> {
   fn from(m: Mat4x3<T>) -> Self {
     #[rustfmt::skip]
@@ -511,6 +527,7 @@ impl<T: Scalar> From<Mat4x3<T>> for Mat4<T> {
   }
 }
 
+/// Use the 3d linear transform as the upper left 3x3.
 impl<T: Scalar> From<Mat3<T>> for Mat4<T> {
   fn from(m: Mat3<T>) -> Self {
     #[rustfmt::skip]
@@ -523,6 +540,7 @@ impl<T: Scalar> From<Mat3<T>> for Mat4<T> {
   }
 }
 
+/// The rotation matrix of the quaternion, the quaternion should be normalized.
 impl<T: Scalar> From<Quat<T>> for Mat4<T> {
   fn from(q: Quat<T>) -> Self {
     let (xs, ys, zs) = (q.x * T::two(), q.y * T::two(), q.z * T::two());
@@ -542,35 +560,29 @@ impl<T: Scalar> From<Quat<T>> for Mat4<T> {
 }
 
 impl<T: Scalar> Mat4<T> {
-  /// Mat should be TRS composed, return (translate, quaternion, scale)
+  /// The matrix should be TRS composed, return (translate, quaternion, scale).
+  ///
+  /// The mirror transform (negative determinant) is decomposed into the negative x scale, so the
+  /// rotation is always a proper rotation.
   pub fn decompose(&self) -> (Vec3<T>, Quat<T>, Vec3<T>) {
-    let mut scale = self.get_scale();
-
-    // if determine is negative, we need to invert one scale
-    if self.det() < T::zero() {
-      scale.x *= -T::one()
-    }
-
+    let scale = self.get_signed_scale();
     let position = self.position();
-
     let quaternion = self.extract_rotation_mat().to_mat3().into();
-
     (position, quaternion, scale)
   }
 
+  /// The scale with the sign: if the determinant is negative, the x scale is negated.
+  fn get_signed_scale(&self) -> Vec3<T> {
+    let mut scale = self.get_scale();
+    if self.to_mat3().det() < T::zero() {
+      scale.x = -scale.x;
+    }
+    scale
+  }
+
+  /// The inverse of [`Mat4::decompose`], the transforms are applied in scale, rotation,
+  /// translation order.
   pub fn compose(translate: Vec3<T>, quaternion: Quat<T>, scale: Vec3<T>) -> Self {
     Mat4::translate(translate) * Mat4::from(quaternion) * Mat4::scale(scale)
-  }
-}
-
-impl<T> AsRef<Mat4<T>> for Mat4<T> {
-  fn as_ref(&self) -> &Mat4<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Mat4<T>> for Mat4<T> {
-  fn as_mut(&mut self) -> &mut Mat4<T> {
-    self
   }
 }

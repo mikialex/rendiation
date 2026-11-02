@@ -72,9 +72,11 @@ impl<T> Vec3<T>
 where
   T: Scalar,
 {
-  /// input: Matrix4 affine matrix
+  /// Transform self as a direction by the affine matrix (the translation is ignored), the result
+  /// is normalized.
   ///
-  /// vector interpreted as a direction
+  /// Note, for normal vectors use the [`Mat4::to_normal_matrix`] instead if the matrix has non
+  /// uniform scale.
   #[inline]
   #[must_use]
   pub fn transform_direction(&self, m: Mat4<T>) -> NormalizedVector<T, Self> {
@@ -86,15 +88,18 @@ where
     .into_normalized()
   }
 
+  /// The max component.
   #[inline]
   pub fn max_channel(self) -> T {
     self.x.max(self.y).max(self.z)
   }
+  /// The min component.
   #[inline]
   pub fn min_channel(self) -> T {
     self.x.min(self.y).min(self.z)
   }
 
+  /// The index of the max component, the first one is returned if there are equal ones.
   #[inline]
   pub fn max_channel_index(self) -> usize {
     if self.x >= self.y && self.x >= self.z {
@@ -123,6 +128,11 @@ where
 }
 
 impl<T: Scalar> NormalizedVector<T, Vec3<T>> {
+  /// Build an orthonormal basis that maps the local space z axis to self. The x and y axis
+  /// are arbitrary chosen perpendicular directions.
+  ///
+  /// Typically used to transform the hemisphere samples around +z into the space around
+  /// the normal.
   pub fn local_to_world(&self) -> Mat3<T> {
     let v = self.value;
     let ns = if v.x.is_normal() {
@@ -152,10 +162,12 @@ where
 }
 
 impl<T> Vec3<T> {
+  /// Create a [`Vec4`] with the given w component.
   #[must_use]
   pub fn expand_with(self, channel: T) -> Vec4<T> {
     Vec4::new(self.x, self.y, self.z, channel)
   }
+  /// Create a [`Vec4`] with w = 1, which is the homogeneous coordinate of a point.
   #[must_use]
   pub fn expand_with_one(self) -> Vec4<T>
   where

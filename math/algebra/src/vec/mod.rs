@@ -1,3 +1,5 @@
+//! The 2, 3, 4 dimensional vector types and the vector abstractions.
+
 mod dimension;
 mod normalized;
 mod swizzle;
@@ -14,6 +16,7 @@ pub use vec4::*;
 
 use crate::*;
 
+/// Short hand of `Vec2::new`, `Vec3::new` and `Vec4::new`, selected by argument count.
 #[macro_export]
 macro_rules! vector {
   ($x:expr,$y:expr) => {
@@ -36,7 +39,7 @@ macro_rules! impl_vector {
         $VectorN { $($field),+ }
       }
 
-      /// return the length of element
+      /// Return the component count.
       #[inline]
       pub fn len() -> usize {
        $n
@@ -73,6 +76,10 @@ macro_rules! impl_vector {
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeTo<usize>);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFrom<usize>);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFull);
+
+    impl_operator!(<S> Neg for $VectorN<S> {
+      fn neg(vector) -> $VectorN<S> { $VectorN::new($(-vector.$field),+) }
+    });
 
     impl_operator!(<S> Add<$VectorN<S> > for $VectorN<S> {
       fn add(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field + rhs.$field),+) }

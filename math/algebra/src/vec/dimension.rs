@@ -4,11 +4,12 @@ use num_traits::real::Real;
 
 use crate::*;
 
-// this trait for mark the vector's dimension
+/// Mark the vector's dimension.
 pub trait VectorDimension<const D: usize> {}
 
-// this trait abstract for ops on vector
+/// Abstract the component wise operations on vector.
 pub trait Vector<T: One + Zero + Copy>: Copy {
+  /// Create the vector by calling `f` for each component.
   fn create<F>(f: F) -> Self
   where
     F: Fn() -> T;
@@ -38,31 +39,37 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
   fn zero() -> Self {
     Self::create(T::zero)
   }
+  /// Create the vector with all components equal to `v`.
   #[inline]
   #[must_use]
   fn splat(v: T) -> Self {
     Self::create(|| v)
   }
+  /// The component count of the vector.
   fn channel_count() -> usize;
 }
 
-/// the vector that in real number space
+/// The vector that in real number space, provides the component wise min max utils.
 pub trait RealVector<T: One + Zero + Real>: Vector<T> {
+  /// Component wise min.
   #[inline]
   #[must_use]
   fn min(self, rhs: Self) -> Self {
     self.zip(rhs, |a, b| a.min(b))
   }
+  /// Component wise max.
   #[inline]
   #[must_use]
   fn max(self, rhs: Self) -> Self {
     self.zip(rhs, |a, b| a.max(b))
   }
+  /// Component wise clamp.
   #[inline]
   #[must_use]
   fn clamp(self, min: Self, max: Self) -> Self {
     self.min(max).max(min)
   }
+  /// Component wise clamp into 0 to 1.
   #[inline]
   #[must_use]
   fn saturate(self) -> Self {
@@ -70,7 +77,7 @@ pub trait RealVector<T: One + Zero + Real>: Vector<T> {
   }
 }
 
-/// https://en.wikipedia.org/wiki/Vector_space
+/// <https://en.wikipedia.org/wiki/Vector_space>
 pub trait VectorSpace<T>:
   Add<Self, Output = Self>
   + Sub<Self, Output = Self>
@@ -79,6 +86,7 @@ pub trait VectorSpace<T>:
   + Sized
   + Copy
 {
+  /// Return the vector with the opposite direction.
   #[inline]
   #[must_use]
   fn reverse(&self) -> Self
@@ -89,10 +97,15 @@ pub trait VectorSpace<T>:
   }
 }
 
-/// https://en.wikipedia.org/wiki/Inner_product
+/// <https://en.wikipedia.org/wiki/Inner_product>
 ///
 /// inner space define the length and angle based on vector space
+///
+/// The methods that take `Rhs: InnerData<Self>` accept both the vector and the
+/// [`NormalizedVector`] of it.
 pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
+  /// Return the unit length vector with the same direction. The zero length vector is returned
+  /// as is.
   #[inline]
   #[must_use]
   fn normalize(&self) -> Self {
@@ -104,7 +117,8 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
     *self
   }
 
-  /// return the length before normalization
+  /// Normalize self in place and return the length before normalization. The zero length vector
+  /// is kept as is and zero is returned.
   #[inline]
   fn normalize_self(&mut self) -> T {
     let mag_sq = self.length2();
@@ -117,6 +131,7 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
     T::zero()
   }
 
+  /// Reflect the vector by the plane defined by the `normal`, the normal should be normalized.
   #[inline]
   #[must_use]
   fn reflect<Rhs: InnerData<Self>>(&self, normal: Rhs) -> Self {
@@ -129,6 +144,7 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
     self.length2().sqrt()
   }
 
+  /// The squared length, cheaper than [`InnerProductSpace::length`].
   #[inline]
   fn length2(&self) -> T {
     self.dot(*self)
@@ -139,6 +155,7 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
     (*self - b.get_inner()).length()
   }
 
+  /// The squared distance, cheaper than [`InnerProductSpace::distance_to`].
   #[inline]
   fn distance2_to<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
     (*self - b.get_inner()).length2()
@@ -148,6 +165,7 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   fn dot<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
     self.dot_impl(b.get_inner())
   }
+  /// The dot product implementation, use [`InnerProductSpace::dot`] instead.
   fn dot_impl(&self, b: Self) -> T;
 }
 

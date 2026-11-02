@@ -66,20 +66,20 @@ impl<T> Vec2<T>
 where
   T: Scalar,
 {
+  /// Rotate the point counter clockwise around the `anchor` point.
   #[inline]
   #[must_use]
   pub fn rotate(&self, anchor: Self, radians: T) -> Self {
     let v = *self - anchor;
-    let x = v.x;
-    let y = v.y;
-    let c = radians.cos();
-    let s = radians.sin();
-    Self {
-      x: x * c - y * s,
-      y: x * s + y * c,
-    }
+    let (s, c) = radians.sin_cos();
+    anchor
+      + Self {
+        x: v.x * c - v.y * s,
+        y: v.x * s + v.y * c,
+      }
   }
 
+  /// Rotate 90 degrees clockwise.
   #[inline]
   #[must_use]
   pub fn perpendicular_cw(&self) -> Self {
@@ -89,6 +89,7 @@ where
     }
   }
 
+  /// Rotate 90 degrees counter clockwise.
   #[inline]
   #[must_use]
   pub fn perpendicular_ccw(&self) -> Self {
@@ -112,7 +113,8 @@ impl<T> Vec2<T>
 where
   T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Copy,
 {
-  /// Return the cross product of the two vectors.
+  /// Return the 2d cross product (the z component of the 3d cross product), which is positive
+  /// if `b` is counter clockwise of self.
   #[must_use]
   pub fn cross(self, b: Self) -> T {
     self.x * b.y - self.y * b.x

@@ -13,7 +13,7 @@ serde = { workspace = true }
 
 
 [dev-dependencies]
-cgmath = "0.18.0"
+glam = "0.33"
 
 [lints]
 workspace = true

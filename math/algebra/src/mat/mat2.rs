@@ -1,9 +1,10 @@
 use std::ops::{Add, Mul};
 
-use facet::Facet;
-
 use crate::*;
 
+/// The column major 2x2 matrix, `a` is the first column and `b` is the second column.
+///
+/// It is the linear transform in 2d space, or the "sub" linear part of [`Mat3`].
 #[repr(C)]
 #[rustfmt::skip]
 #[derive(Serialize, Deserialize)]
@@ -14,10 +15,32 @@ pub struct Mat2<T> {
 }
 
 impl<T> Mat2<T> {
-  pub fn map<X: Clone>(self, f: impl Fn(T) -> X) -> Mat2<X> {
+  /// Create the matrix column by column: `m11, m12` is the first column.
+  pub const fn new(m11: T, m12: T, m21: T, m22: T) -> Self {
+    Self {
+      a1: m11,
+      a2: m12,
+      b1: m21,
+      b2: m22,
+    }
+  }
+
+  /// Map each element into another type.
+  pub fn map<X>(self, f: impl Fn(T) -> X) -> Mat2<X> {
     let arr: [T; 4] = self.into();
-    let arr = arr.map(f);
-    arr.into()
+    arr.map(f).into()
+  }
+}
+
+impl<T: Copy> Mat2<T> {
+  /// The first column, the transformed x axis.
+  pub fn right(&self) -> Vec2<T> {
+    Vec2::new(self.a1, self.a2)
+  }
+
+  /// The second column, the transformed y axis.
+  pub fn up(&self) -> Vec2<T> {
+    Vec2::new(self.b1, self.b2)
   }
 }
 
@@ -27,13 +50,11 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
     Self::one()
   }
   fn transpose(&self) -> Self {
-    let (a1, a2) = (self.a1, self.b1);
-    let (b1, b2) = (self.a2, self.b2);
     #[rustfmt::skip]
-    Mat2 {
-      a1, a2,
-      b1, b2,
-    }
+    Mat2::new(
+      self.a1, self.b1,
+      self.a2, self.b2,
+    )
   }
   fn det(&self) -> T {
     self.a1 * self.b2 - self.a2 * self.b1
@@ -45,15 +66,17 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
     }
     let inv_det = T::one() / det;
     #[rustfmt::skip]
-    Self {
-      a1:  self.b2 * inv_det, a2: -self.b1 * inv_det,
-      b1: -self.a2 * inv_det, b2: self.a1  * inv_det,
-    }
+    Mat2::new(
+       self.b2 * inv_det, -self.a2 * inv_det,
+      -self.b1 * inv_det,  self.a1 * inv_det,
+    )
     .into()
   }
 
   fn max_scale(&self) -> T {
-    self.a1.sqrt()
+    let x = self.a1 * self.a1 + self.a2 * self.a2;
+    let y = self.b1 * self.b1 + self.b2 * self.b2;
+    x.max(y).sqrt()
   }
 }
 
@@ -94,45 +117,27 @@ where
 
 impl<T> Mat2<T>
 where
-  T: Copy,
-{
-  pub fn new(m11: T, m12: T, m21: T, m22: T) -> Self {
-    Self {
-      a1: m11,
-      a2: m12,
-      b1: m21,
-      b2: m22,
-    }
-  }
-
-  pub fn right(&self) -> Vec2<T> {
-    Vec2::new(self.a1, self.a2)
-  }
-
-  pub fn up(&self) -> Vec2<T> {
-    Vec2::new(self.b1, self.b2)
-  }
-}
-
-impl<T> Mat2<T>
-where
   T: Scalar,
 {
+  /// The xy part of the 3d rotation around the x axis (the 3d rotation projected to xy plane).
   pub fn rotate_x(theta: T) -> Self {
-    let (_s, c) = theta.sin_cos();
+    let c = theta.cos();
     Mat2::new(T::one(), T::zero(), T::zero(), c)
   }
 
+  /// The xy part of the 3d rotation around the y axis (the 3d rotation projected to xy plane).
   pub fn rotate_y(theta: T) -> Self {
-    let (_s, c) = theta.sin_cos();
+    let c = theta.cos();
     Mat2::new(c, T::zero(), T::zero(), T::one())
   }
 
+  /// The 2d counter clockwise rotation, same as the 3d rotation around the z axis.
   pub fn rotate_z(theta: T) -> Self {
     let (s, c) = theta.sin_cos();
-    Mat2::new(c, -s, s, c)
+    Mat2::new(c, s, -s, c)
   }
 
+  /// The xy part of the 3d rotation around the normalized `axis`, see [`Mat3::rotate`].
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
     let (s, c) = theta.sin_cos();
 
@@ -157,6 +162,7 @@ where
     }
   }
 
+  /// The non uniform scale.
   pub fn scale(x: T, y: T) -> Self {
     #[rustfmt::skip]
     Mat2 {
@@ -198,27 +204,9 @@ where
   }
 }
 
-impl<T> From<(T, T, T, T)> for Mat2<T>
-where
-  T: Copy,
-{
+impl<T> From<(T, T, T, T)> for Mat2<T> {
   fn from(v: (T, T, T, T)) -> Self {
-    #[rustfmt::skip]
-    Self {
-      a1: v.0, a2: v.1,
-      b1: v.2, b2: v.3,
-    }
-  }
-}
-
-impl<T> AsRef<Mat2<T>> for Mat2<T> {
-  fn as_ref(&self) -> &Mat2<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Mat2<T>> for Mat2<T> {
-  fn as_mut(&mut self) -> &mut Mat2<T> {
-    self
+    let (a1, a2, b1, b2) = v;
+    Self { a1, a2, b1, b2 }
   }
 }
