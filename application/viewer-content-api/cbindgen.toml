@@ -10,8 +10,6 @@ parse_deps = true
 include = [
     "wgpu-types",
     "rendiation-mesh-core",
-    "rendiation-occ-style-draw-control",
-    "rendiation-occ-style-material",
     "rendiation-text-3d",
     "rendiation-texture-gpu-process",
 ]

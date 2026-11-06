@@ -19,8 +19,6 @@ rendiation-viewer-content = { workspace = true }
 
 # these dep declare are necessary as we are export c type from them
 rendiation-mesh-core = { workspace = true }
-rendiation-occ-style-draw-control = { workspace = true }
-rendiation-occ-style-material = { workspace = true }
 rendiation-text-3d = { workspace = true }
 rendiation-texture-gpu-process = { workspace = true }
 rendiation-dynamic-bvh-scene = { workspace = true }

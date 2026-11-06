@@ -92,12 +92,9 @@ members = [
   "extension/gizmo",
   "extension/area-lighting",
   "extension/view-dependent-transform",
-  "extension/occ-style-draw-control",
-  "extension/occ-style-material",
   "extension/parametric-rendering",
   "extension/transform-instanced-model",
   "extension/csg-sdf-expression",
-  "extension/cell-mesh",
   "extension/dynamic-bvh",
   "extension/dynamic-bvh-scene",
   "effect/oit",
@@ -181,7 +178,6 @@ rendiation-algebra = { path = "math/algebra" }
 rendiation-animation = { path = "content/animation" }
 rendiation-area-lighting = { path = "extension/area-lighting" }
 rendiation-barycentric-solid-line = { path = "extension/barycentric-solid-line" }
-rendiation-cell-mesh = { path = "extension/cell-mesh" }
 rendiation-color = { path = "content/color" }
 rendiation-controller = { path = "extension/controller" }
 rendiation-csg-clip = { path = "effect/csg_clip" }
@@ -210,8 +206,6 @@ rendiation-mesh-lod-graph = { path = "content/mesh/lod-graph" }
 rendiation-mesh-segmentation = { path = "content/mesh/segmentation" }
 rendiation-mesh-simplification = { path = "content/mesh/simplification" }
 rendiation-mesh-test-util = { path = "content/mesh/test-util" }
-rendiation-occ-style-draw-control = { path = "extension/occ-style-draw-control" }
-rendiation-occ-style-material = { path = "extension/occ-style-material" }
 rendiation-occlusion-culling = { path = "scene/rendering/occlusion-culling" }
 rendiation-oit = { path = "effect/oit" }
 rendiation-parametric-rendering = { path = "extension/parametric-rendering" }

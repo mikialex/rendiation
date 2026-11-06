@@ -184,17 +184,12 @@ impl Viewer3dRenderingCtx {
         let unlit_mat = use_unlit_material_uniforms(cx);
         let pbr_mr_mat = use_pbr_mr_material_uniforms(cx);
         let pbr_sg_mat = use_pbr_sg_material_uniforms(cx);
-        let occ_material = rendiation_occ_style_material::gles::use_occ_material_uniforms(
-          cx,
-          self.ndc.enable_reverse_z,
-        );
 
         let materials = cx.when_render(|| {
           Box::new(vec![
             Box::new(unlit_mat.unwrap()) as Box<dyn GLESModelMaterialRenderImpl>,
             Box::new(pbr_mr_mat.unwrap()),
             Box::new(pbr_sg_mat.unwrap()),
-            Box::new(occ_material.unwrap()),
           ]) as Box<dyn GLESModelMaterialRenderImpl>
         });
 
@@ -239,10 +234,6 @@ impl Viewer3dRenderingCtx {
         let unlit_material = use_unlit_material_storage(cx);
         let pbr_mr_material = use_pbr_mr_material_storage(cx);
         let pbr_sg_material = use_pbr_sg_material_storage(cx);
-        let occ_material = rendiation_occ_style_material::indirect::use_occ_material_storage(
-          cx,
-          self.ndc.enable_reverse_z,
-        );
         scope.end(cx);
 
         let model_buffer_merge =
@@ -296,7 +287,6 @@ impl Viewer3dRenderingCtx {
             Box::new(unlit_material.unwrap()) as Box<dyn IndirectModelMaterialRendererResolver>,
             Box::new(pbr_mr_material.unwrap()),
             Box::new(pbr_sg_material.unwrap()),
-            Box::new(occ_material.unwrap()),
           ]) as Box<dyn IndirectModelMaterialRendererResolver>
         });
 
@@ -304,14 +294,8 @@ impl Viewer3dRenderingCtx {
           rtx_mesh = mesh.as_ref().map(|mesh| mesh.internal.clone());
         }
 
-        let cell_mesh = use_cell_mesh_renderer(cx, self.using_host_driven_indirect_draw);
-
-        let mesh = cx.when_render(|| {
-          Box::new(vec![
-            Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRendererResolver>,
-            cell_mesh.unwrap(),
-          ]) as Box<dyn IndirectModelShapeRendererResolver>
-        });
+        let mesh =
+          cx.when_render(|| Box::new(mesh.unwrap()) as Box<dyn IndirectModelShapeRendererResolver>);
 
         let model_buffer_merge = model_buffer_merge.restart(cx);
 
@@ -396,18 +380,12 @@ impl Viewer3dRenderingCtx {
               .dual_query_select(text_key)
               .dual_query_boxed();
 
-            let occ_material =
-              rendiation_occ_style_material::indirect::use_occ_material_indirect_group_key(cx);
-
-            let cell_mesh = use_cell_mesh_group_key(cx);
-
             let key_impl = GroupKeyForeignImpl {
               model: Some(impl_key),
-              material: Some(occ_material),
-              mesh: Some(cell_mesh),
+              material: None,
+              mesh: None,
             };
 
-            use rendiation_occ_style_draw_control::*;
             let internal = use_scene_model_group_key(cx, key_impl, mesh_key);
 
             let (internal, internal_) = internal.fork();
@@ -415,8 +393,8 @@ impl Viewer3dRenderingCtx {
             let internal = instance.dual_query_select(internal_).dual_query_boxed();
 
             let internal = use_scene_model_group_key_with_scene_id_and_visible_filter(cx, internal);
-            let sm_group_key = use_scene_model_occ_group_key(cx, internal);
-            indirect_extractor = use_occ_incremental_device_scene_batch_extractor(cx, sm_group_key);
+            indirect_extractor = use_incremental_device_scene_batch_extractor(cx, internal)
+              .map(|v| Box::new(v) as Box<dyn SceneBatchBasicExtractAbility>);
           })
         }
 
@@ -498,8 +476,8 @@ impl Viewer3dRenderingCtx {
       None
     };
 
-    // let extractor = use_default_scene_batch_extractor(cx);
-    let extractor = rendiation_occ_style_draw_control::use_occ_host_scene_batch_extractor(cx);
+    let extractor = use_default_scene_batch_extractor(cx)
+      .map(|v| Box::new(v) as Box<dyn SceneBatchBasicExtractAbility>);
 
     let camera_transforms = cx
       .use_shared_dual_query_view(GlobalCameraTransformShare(self.ndc))

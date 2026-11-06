@@ -21,7 +21,6 @@ pub use rendiation_area_lighting::{
   AreaLightEntity, AreaLightIntensity, AreaLightIsDoubleSide, AreaLightIsRound, AreaLightRefNode,
   AreaLightRefScene, AreaLightSize,
 };
-pub use rendiation_cell_mesh::*;
 use rendiation_controller::InputBound;
 use rendiation_device_parallel_compute::FrameCtxParallelComputeExt;
 pub use rendiation_dynamic_bvh_scene::SceneBVHResultView;
@@ -34,16 +33,6 @@ use rendiation_lighting_gpu_system::*;
 use rendiation_lighting_shadow_map::*;
 use rendiation_lighting_transport::*;
 pub use rendiation_mesh_core::*;
-pub use rendiation_occ_style_draw_control::{
-  OccFlavorZLayer, SceneModelOccStyleLayer, SceneModelOccStylePriority,
-};
-pub use rendiation_occ_style_material::{
-  OccStyleEffectControlEntity, OccStyleEffectShadeType, OccStyleEffectStateOverride,
-  OccStyleEffectType, OccStyleMaterialDiffuse, OccStyleMaterialDiffuseBackFace,
-  OccStyleMaterialDiffuseTex, OccStyleMaterialEffect, OccStyleMaterialEmissive,
-  OccStyleMaterialEntity, OccStyleMaterialShininess, OccStyleMaterialSpecular,
-  StdModelOccStyleMaterialPayload, register_occ_material_data_model,
-};
 use rendiation_scene_batch_extractor::*;
 pub use rendiation_scene_core::*;
 pub use rendiation_scene_geometry_query::*;
@@ -137,8 +126,5 @@ pub fn register_viewer_content_data_model() {
   register_wide_styled_points_data_model(true);
   register_text3d_data_model(true);
   register_occ_style_view_dependent_data_model();
-  rendiation_occ_style_draw_control::register_occ_style_draw_control_data_model();
-  register_occ_material_data_model(true);
   rendiation_transform_instanced_model::register_transform_instanced_model_data_model(true);
-  rendiation_cell_mesh::register_cell_mesh_data_model(true);
 }

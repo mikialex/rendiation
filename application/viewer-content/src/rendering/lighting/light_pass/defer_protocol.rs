@@ -1,7 +1,5 @@
 use std::any::TypeId;
 
-use rendiation_occ_style_material::OccSurfaceTag;
-
 use crate::*;
 
 pub struct FrameGeneralMaterialBuffer {
@@ -325,7 +323,7 @@ impl DeferLightingMaterialBufferReadWrite for PbrSurfaceEncodeDecode {
   }
 }
 
-/// the pbr and phong surface both encode the emissive in channel_b.w and channel_c.xy
+/// the pbr surface encodes the emissive in channel_b.w and channel_c.xy
 fn decode_emissive_in_b_w_c_xy(instance: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
   vec3_node((
     instance.channel_b.w(),
@@ -360,55 +358,5 @@ impl DeferLightingMaterialBufferReadWrite for UnlitSurfaceEncodeDecode {
 
   fn decode_emissive(_: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
     val(Vec3::zero())
-  }
-}
-
-pub struct PhongSurfaceEncodeDecode;
-// alpha is not used because in defer mode transparency is not supported
-// and alpha discard has already done in encoder.
-impl DeferLightingMaterialBufferReadWrite for PhongSurfaceEncodeDecode {
-  fn encode(
-    builder: &mut ShaderFragmentBuilderView,
-    indices: &FrameGeneralMaterialChannelIndices,
-  ) -> bool {
-    if builder.contains_type_tag::<OccSurfaceTag>() {
-      let alpha = builder.try_query::<AlphaChannel>().unwrap_or(val(1.));
-      let diffuse = builder
-        .try_query::<ColorChannel>()
-        .unwrap_or(val(Vec3::one()));
-      let emissive = builder
-        .try_query::<EmissiveChannel>()
-        .unwrap_or(val(Vec3::zero()));
-      let specular = builder
-        .try_query::<SpecularChannel>()
-        .unwrap_or(val(Vec3::zero()));
-      // let shininess = builder.try_query::<ShininessChannel>().unwrap_or(val(0.));
-
-      builder.frag_output[indices.channel_a].store((diffuse, alpha).into());
-      builder.frag_output[indices.channel_b].store((specular, emissive.x()).into());
-      builder.frag_output[indices.channel_c].store((emissive.yz(), alpha, val(1.)).into());
-      true
-    } else {
-      false
-    }
-  }
-
-  fn decode_alpha(instance: &FrameGeneralMaterialBufferReadValue) -> Node<f32> {
-    instance.channel_a.w()
-  }
-
-  fn decode_emissive(instance: &FrameGeneralMaterialBufferReadValue) -> Node<Vec3<f32>> {
-    decode_emissive_in_b_w_c_xy(instance)
-  }
-
-  fn decode(instance: &FrameGeneralMaterialBufferReadValue) -> DeferLightingSurfaceReadBack {
-    let surface = Box::new(ENode::<ShaderPhongShading> {
-      diffuse: instance.channel_a.xyz(),
-      shininess: val(30.), // todo
-      specular: instance.channel_b.xyz(),
-      emissive: decode_emissive_in_b_w_c_xy(instance),
-    });
-
-    DeferLightingSurfaceReadBack::Lightable(surface)
   }
 }

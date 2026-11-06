@@ -10,17 +10,13 @@ pub struct SceneModelHandleInfo {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn create_scene_model(
-  material: ViewerEntityHandle,
   mesh: ViewerEntityHandle,
   node: ViewerEntityHandle,
   scene: ViewerEntityHandle,
 ) -> SceneModelHandleInfo {
   let std_model = global_entity_of::<StandardModelEntity>()
     .entity_writer()
-    .new_entity(|w| {
-      let w = w.write::<StandardModelRefAttributesMeshEntity>(&Some(mesh.into()));
-      w.write::<StdModelOccStyleMaterialPayload>(&Some(material.into()))
-    });
+    .new_entity(|w| w.write::<StandardModelRefAttributesMeshEntity>(&Some(mesh.into())));
 
   let scene_model = global_entity_of::<SceneModelEntity>()
     .entity_writer()
@@ -112,11 +108,6 @@ pub extern "C" fn scene_model_remove_occ_style_view_dep(handle: ViewerEntityHand
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn scene_model_set_z_layer(handle: ViewerEntityHandle, z_layer: OccFlavorZLayer) {
-  write_global_db_component::<SceneModelOccStyleLayer>().write(handle.into(), z_layer);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_scene_model_is_infinity(
   handle: ViewerEntityHandle,
   is_infinity: bool,
@@ -125,21 +116,34 @@ pub extern "C" fn scene_model_set_scene_model_is_infinity(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn scene_model_set_priority(handle: ViewerEntityHandle, priority: u32) {
-  write_global_db_component::<SceneModelOccStylePriority>().write(handle.into(), priority);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn scene_model_set_selectable(handle: ViewerEntityHandle, selectable: bool) {
   write_global_db_component::<SceneModelSelectable>().write(handle.into(), selectable);
 }
 
+/// the std model's material is exclusive, setting one kind of material will clear others.
+fn std_model_clear_all_material(std_model: ViewerEntityHandle) {
+  write_global_db_component::<StandardModelRefUnlitMaterial>().write(std_model.into(), None);
+  write_global_db_component::<StandardModelRefPbrMRMaterial>().write(std_model.into(), None);
+  write_global_db_component::<StandardModelRefPbrSGMaterial>().write(std_model.into(), None);
+}
+
 #[unsafe(no_mangle)]
-pub extern "C" fn scene_model_set_material(
+pub extern "C" fn scene_model_set_unlit_material(
   handle: SceneModelHandleInfo,
   material: ViewerEntityHandle,
 ) {
-  write_global_db_component::<StdModelOccStyleMaterialPayload>()
+  std_model_clear_all_material(handle.std_model);
+  write_global_db_component::<StandardModelRefUnlitMaterial>()
+    .write(handle.std_model.into(), Some(material.into()));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn scene_model_set_pbr_mr_material(
+  handle: SceneModelHandleInfo,
+  material: ViewerEntityHandle,
+) {
+  std_model_clear_all_material(handle.std_model);
+  write_global_db_component::<StandardModelRefPbrMRMaterial>()
     .write(handle.std_model.into(), Some(material.into()));
 }
 

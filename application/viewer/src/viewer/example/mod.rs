@@ -1,10 +1,8 @@
-use cell_mesh::use_cell_mesh_example;
 use point_light::use_point_light_shadow_example;
 use stress_test::use_stress_test_example;
 pub use text3d::text3d_content_edit_ui;
 use text3d::use_text3d_example;
 
-mod cell_mesh;
 mod point_light;
 mod stress_test;
 mod text3d;
@@ -33,7 +31,6 @@ pub fn use_viewer_examples(cx: &mut ViewerCx) {
   cx.next_scope_index();
   let (cx, registry) = cx.use_plain_state_init(|cx| {
     let mut registry = ExampleRegistry::default();
-    registry.register("Cell Mesh (FEM)", use_cell_mesh_example);
     registry.register("Point Light Shadow", use_point_light_shadow_example);
     registry.register("Text3d example", use_text3d_example);
     registry.register(

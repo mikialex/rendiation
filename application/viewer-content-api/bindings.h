@@ -95,26 +95,6 @@ enum class MeshAPIDataType {
   Indices,
 };
 
-enum class OccStyleEffectType {
-  Unlit,
-  Lighted,
-  Zebra,
-};
-
-enum class CullMode {
-  None,
-  Front,
-  Back,
-};
-
-enum class OccFlavorZLayer {
-  BotOSD = 0,
-  Default = 1,
-  Top = 2,
-  TopMost = 3,
-  TopOSD = 4,
-};
-
 enum class TextAlignment {
   Left,
   Center,
@@ -569,17 +549,6 @@ struct AttributesMeshEntitiesCommon {
   bool has_uv;
 };
 
-struct OccControlStateSimple {
-  bool enable_depth_test;
-  bool enable_depth_write;
-  bool front_face_ccw;
-  float depth_bias_constant_factor;
-  float depth_bias_slop_factor;
-  float depth_bias_clamp;
-  bool enable_alpha_blend;
-  CullMode cull_mode;
-};
-
 struct SceneModelHandleInfo {
   ViewerEntityHandle scene_model;
   ViewerEntityHandle std_model;
@@ -836,36 +805,6 @@ void update_mesh_data(AttributesMeshEntitiesCommon *entities,
 
 void set_mesh_topology(ViewerEntityHandle mesh, MeshPrimitiveTopology topo);
 
-ViewerEntityHandle create_occ_material();
-
-void drop_occ_material(ViewerEntityHandle handle);
-
-void occ_material_set_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
-
-void occ_material_set_specular(ViewerEntityHandle mat, const float (*color)[3]);
-
-void occ_material_set_back_diffuse(ViewerEntityHandle mat, const float (*color)[4]);
-
-void occ_material_set_shininess(ViewerEntityHandle mat, float shininess);
-
-void occ_material_set_emissive(ViewerEntityHandle mat, const float (*color)[3]);
-
-ViewerEntityHandle create_occ_effect_control();
-
-void drop_occ_effect_control(ViewerEntityHandle handle);
-
-void occ_material_set_effect(ViewerEntityHandle mat, ViewerEntityHandle effect);
-
-void occ_effect_control_set_shade_type(ViewerEntityHandle effect, OccStyleEffectType shade_type);
-
-void occ_effect_control_set_state(ViewerEntityHandle effect, OccControlStateSimple simple_config);
-
-void occ_material_set_diffuse_tex(ViewerEntityHandle mat,
-                                  ViewerEntityHandle tex,
-                                  ViewerEntityHandle sampler);
-
-void std_model_set_occ_material(ViewerEntityHandle handle, ViewerEntityHandle material);
-
 ViewerEntityHandle create_unlit_material();
 
 void unlit_material_set_color(ViewerEntityHandle mat, const float (*color)[4]);
@@ -882,8 +821,7 @@ void pbr_mr_material_set_base_color_tex(ViewerEntityHandle mat,
 
 void drop_pbr_mr_material(ViewerEntityHandle handle);
 
-SceneModelHandleInfo create_scene_model(ViewerEntityHandle material,
-                                        ViewerEntityHandle mesh,
+SceneModelHandleInfo create_scene_model(ViewerEntityHandle mesh,
                                         ViewerEntityHandle node,
                                         ViewerEntityHandle scene);
 
@@ -906,15 +844,13 @@ void scene_model_set_occ_style_view_dep(ViewerEntityHandle handle,
 
 void scene_model_remove_occ_style_view_dep(ViewerEntityHandle handle);
 
-void scene_model_set_z_layer(ViewerEntityHandle handle, OccFlavorZLayer z_layer);
-
 void scene_model_set_scene_model_is_infinity(ViewerEntityHandle handle, bool is_infinity);
-
-void scene_model_set_priority(ViewerEntityHandle handle, uint32_t priority);
 
 void scene_model_set_selectable(ViewerEntityHandle handle, bool selectable);
 
-void scene_model_set_material(SceneModelHandleInfo handle, ViewerEntityHandle material);
+void scene_model_set_unlit_material(SceneModelHandleInfo handle, ViewerEntityHandle material);
+
+void scene_model_set_pbr_mr_material(SceneModelHandleInfo handle, ViewerEntityHandle material);
 
 SceneWidePointsHandleInfo create_wide_points(ViewerEntityHandle node,
                                              uint32_t data_length,

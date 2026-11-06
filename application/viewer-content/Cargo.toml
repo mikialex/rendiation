@@ -76,12 +76,9 @@ rendiation-webgpu-hook-utils = { workspace = true }
 rendiation-webgpu-texture-as-buffer = { workspace = true }
 rendiation-uri-streaming = { workspace = true }
 rendiation-dynamic-bvh-scene = { workspace = true }
-rendiation-occ-style-draw-control = { workspace = true }
-rendiation-occ-style-material = { workspace = true }
 rendiation-view-dependent-transform = { workspace = true }
 rendiation-device-parallel-compute = { workspace = true }
 rendiation-transform-instanced-model = { workspace = true }
-rendiation-cell-mesh = { workspace = true }
 tracing = { workspace = true }
 
 egui = { version = "0.34" }

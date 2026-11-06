@@ -6,13 +6,12 @@ use crate::*;
 
 /// Test scene demonstrating texture and material sharing across multiple material types.
 ///
-/// Scene layout (8 balls, 4 rows x 2 columns):
+/// Scene layout (6 balls, 3 rows x 2 columns):
 ///   Row 1-2 (y=0, y=-2): 4 PbrMR balls sharing 2 material instances (2 balls per material)
 ///   Row 3   (y=-4):      2 PbrSG balls, each with its own material instance
-///   Row 4   (y=-6):      2 OccStyle balls sharing one OccStyleEffectControlEntity
 ///
-/// All 8 balls share the same texture entity.
-/// When the texture is replaced, all 8 balls update regardless of material type.
+/// All 6 balls share the same texture entity.
+/// When the texture is replaced, all 6 balls update regardless of material type.
 ///
 /// Controls:
 ///   - "Replace Shared Texture" — creates a new random XOR texture; checkbox controls
@@ -42,7 +41,7 @@ pub fn use_texture_material_share_example(cx: &mut ViewerCx) {
     egui::Window::new("Texture and Material Share")
       .default_size((400., 100.))
       .show(egui_ui, |ui| {
-        ui.heading("Eight Balls Sharing One Texture, Multiple Material Types");
+        ui.heading("Six Balls Sharing One Texture, Multiple Material Types");
         if ui.button("Replace Shared Texture").clicked() {
           example.replace_texture_pending = true;
         }
@@ -74,17 +73,6 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TextureAndMaterialShareExample {
     for mat in self.sg_materials.drain(..) {
       cx.writer.pbr_sg_mat_writer.delete_entity(mat);
     }
-    {
-      let mut occ_writer = global_entity_of::<OccStyleMaterialEntity>().entity_writer();
-      for mat in self.occ_materials.drain(..) {
-        occ_writer.delete_entity(mat);
-      }
-    }
-    if let Some(effect) = self.occ_effect.take() {
-      global_entity_of::<OccStyleEffectControlEntity>()
-        .entity_writer()
-        .delete_entity(effect);
-    }
     if let Some(tex) = self.shared_texture.take() {
       cx.writer.tex_writer.delete_entity(tex.texture);
       cx.writer.sampler_writer.delete_entity(tex.sampler);
@@ -98,8 +86,6 @@ impl CanCleanUpFrom<ViewerDropCx<'_>> for TextureAndMaterialShareExample {
 struct TextureAndMaterialShareExample {
   mr_materials: Vec<EntityHandle<PbrMRMaterialEntity>>,
   sg_materials: Vec<EntityHandle<PbrSGMaterialEntity>>,
-  occ_materials: Vec<EntityHandle<OccStyleMaterialEntity>>,
-  occ_effect: Option<EntityHandle<OccStyleEffectControlEntity>>,
   scene_units: Vec<SceneModelWithUniqueNode>,
   std_models: Vec<EntityHandle<StandardModelEntity>>,
   mesh_entities: Option<AttributesMeshEntities>,
@@ -117,8 +103,6 @@ impl TextureAndMaterialShareExample {
     Self {
       mr_materials: Vec::new(),
       sg_materials: Vec::new(),
-      occ_materials: Vec::new(),
-      occ_effect: None,
       scene_units: Vec::new(),
       std_models: Vec::new(),
       mesh_entities: None,
@@ -133,7 +117,7 @@ impl TextureAndMaterialShareExample {
   }
 
   fn initialize(&mut self, writer: &mut SceneWriter, scene: EntityHandle<SceneEntity>) {
-    // Build a shared sphere mesh used by all 8 balls
+    // Build a shared sphere mesh used by all 6 balls
     let attribute_mesh = build_attributes_mesh(|builder| {
       builder.triangulate_parametric(
         &SphereMeshParameter::default().make_surface(),
@@ -146,7 +130,7 @@ impl TextureAndMaterialShareExample {
     let mesh = mesh_entities.mesh;
     self.mesh_entities = Some(mesh_entities);
 
-    // Create a single texture entity shared by all materials across all 8 balls
+    // Create a single texture entity shared by all materials across all 6 balls
     let texture = Self::create_xor_texture(writer);
     self.shared_texture = Some(texture);
 
@@ -176,32 +160,7 @@ impl TextureAndMaterialShareExample {
       self.sg_materials.push(material);
     }
 
-    // 2 OccStyle materials referencing the shared texture, plus a shared effect
-    {
-      let mut occ_writer = global_entity_of::<OccStyleMaterialEntity>().entity_writer();
-      for _ in 0..2 {
-        let occ_material = occ_writer.new_entity(|w| {
-          let w = w
-            .write::<OccStyleMaterialDiffuse>(&Vec4::new(0.8, 0.8, 0.8, 1.0))
-            .write::<OccStyleMaterialSpecular>(&Vec3::new(1.0, 1.0, 1.0))
-            .write::<OccStyleMaterialShininess>(&200.)
-            .write::<OccStyleMaterialEmissive>(&Vec3::zero());
-          texture.write::<OccStyleMaterialDiffuseTex>(w)
-        });
-        self.occ_materials.push(occ_material);
-      }
-
-      let effect = global_entity_of::<OccStyleEffectControlEntity>()
-        .entity_writer()
-        .new_entity(|w| w.write::<OccStyleEffectShadeType>(&OccStyleEffectType::Lighted));
-      self.occ_effect = Some(effect);
-
-      for &occ_material in &self.occ_materials {
-        occ_writer.write::<OccStyleMaterialEffect>(occ_material, effect.some_handle());
-      }
-    }
-
-    // --- Scene models (4 rows x 2 columns) ---
+    // --- Scene models (3 rows x 2 columns) ---
 
     // Row 1-2: 4 PbrMR balls, each pair reusing one of the 2 material instances
     let mr_positions = [
@@ -236,28 +195,6 @@ impl TextureAndMaterialShareExample {
         node,
         scene,
       );
-      self.std_models.push(std_model);
-      self
-        .scene_units
-        .push(SceneModelWithUniqueNode { model, node });
-    }
-
-    // Row 4: 2 OccStyle balls, manually wired via StandardModel + SceneModel entities
-    // (OccStyle uses StdModelOccStyleMaterialPayload instead of SceneMaterialDataView)
-    let occ_positions = [(-1.5, -6.0, 0.0), (1.5, -6.0, 0.0)];
-    // safe: SceneWriter always has a target scene when called from ViewerCx stage
-    for (i, &pos) in occ_positions.iter().enumerate() {
-      let node = writer.create_root_child();
-      writer.set_local_matrix(node, Mat4::translate(pos));
-      let std_model = writer.std_model_writer.new_entity(|w| {
-        w.write::<StandardModelRefAttributesMeshEntity>(&mesh.some_handle())
-          .write::<StdModelOccStyleMaterialPayload>(&self.occ_materials[i].some_handle())
-      });
-      let model = writer.model_writer.new_entity(|w| {
-        w.write::<SceneModelStdModelRenderPayload>(&std_model.some_handle())
-          .write::<SceneModelBelongsToScene>(&scene.some_handle())
-          .write::<SceneModelRefNode>(&node.some_handle())
-      });
       self.std_models.push(std_model);
       self
         .scene_units
@@ -362,21 +299,6 @@ impl TextureAndMaterialShareExample {
           material,
           new_texture.sampler.some_handle(),
         );
-    }
-
-    {
-      let mut occ_writer = global_entity_of::<OccStyleMaterialEntity>().entity_writer();
-      for &material in &self.occ_materials {
-        occ_writer
-          .write::<SceneTexture2dRefOf<OccStyleMaterialDiffuseTex>>(
-            material,
-            new_texture.texture.some_handle(),
-          )
-          .write::<SceneSamplerRefOf<OccStyleMaterialDiffuseTex>>(
-            material,
-            new_texture.sampler.some_handle(),
-          );
-      }
     }
 
     // safe: shared_texture holds the old tex+sampler that all materials just stopped referencing

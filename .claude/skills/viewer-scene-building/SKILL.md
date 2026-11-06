@@ -121,28 +121,6 @@ let material = PhysicalMetallicRoughnessMaterialDataView {
 let material = SceneMaterialDataView::PbrMRMaterial(material);
 ```
 
-### OccStyle (CAD-style)
-
-```rust
-// See extension/occ-style-material for the full type paths
-use rendiation_occ_style_material::*;
-
-let mut occ_writer = global_entity_of::<OccStyleMaterialEntity>().entity_writer();
-let occ_material = occ_writer.new_entity(|w| {
-    let w = w
-        .write::<OccStyleMaterialDiffuse>(&Vec4::new(0.8, 0.8, 0.8, 1.0))
-        .write::<OccStyleMaterialSpecular>(&Vec3::new(1.0, 1.0, 1.0))
-        .write::<OccStyleMaterialShininess>(&200.)
-        .write::<OccStyleMaterialEmissive>(&Vec3::zero());
-    texture.write::<OccStyleMaterialDiffuseTex>(w)
-});
-
-let mut effect_writer = global_entity_of::<OccStyleEffectControlEntity>().entity_writer();
-let effect = effect_writer
-    .new_entity(|w| w.write::<OccStyleEffectShadeType>(&OccStyleEffectType::Lighted));
-occ_writer.write::<OccStyleMaterialEffect>(occ_material, effect.some_handle());
-```
-
 ## Scene model wiring
 
 ### Standard pattern (covers 90% of cases)
@@ -163,7 +141,7 @@ let scene = scene.some_handle();
 
 let std_model = writer.std_model_writer.new_entity(|w| {
     w.write::<StandardModelRefAttributesMeshEntity>(&mesh.some_handle())
-        .write::<StdModelOccStyleMaterialPayload>(&occ_material.some_handle())
+        .write::<StandardModelRefPbrMRMaterial>(&pbr_mr_material.some_handle())
 });
 
 writer.model_writer.new_entity(|w| {
