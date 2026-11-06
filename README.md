@@ -19,7 +19,7 @@ RRF is highly modular, layered, decoupled, and well-structured. Users can build,
 - platform: platform specifics & encapsulations, for example graphic API
   - event_input: winit event utilities and common event process logic
   - graphics
-    - [webgpu](./platform/graphics/webgpu/README.md): the wgpu encapsulation layer
+    - [webgpu](./platform/webgpu/core/README.md): the wgpu encapsulation layer
     - webgpu-hook-utils: webgpu hooks extension support
     - webgpu-virtual-typed-combine-buffer: container utils that merge multiple buffer bindings into one to workaround binding count limitations on specific plaftform
 - utility: general purpose data structure and algorithm and utils

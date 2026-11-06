@@ -74,13 +74,13 @@ members = [
   "scene/io/gltf/exporter",
   "scene/geometry-query",
   "platform/event-input",
-  "platform/graphics/webgpu",
-  "platform/graphics/webgpu-frame",
-  "platform/graphics/webgpu-hook-utils",
-  "platform/graphics/webgpu-virtual-typed-combine-buffer",
-  "platform/graphics/webgpu-midc-downgrade",
-  "platform/graphics/webgpu-texture-as-buffer",
-  "platform/graphics/webgpu-buffer-allocator",
+  "platform/webgpu/core",
+  "platform/webgpu/frame",
+  "platform/webgpu/hook-utils",
+  "platform/webgpu/virtual-typed-combine-buffer",
+  "platform/webgpu/midc-downgrade",
+  "platform/webgpu/texture-as-buffer",
+  "platform/webgpu/buffer-allocator",
   "extension/controller",
   "extension/view-override-model",
   "extension/barycentric-solid-line",
@@ -155,7 +155,7 @@ web-time = "1.1.0"
 
 # internal workspace crates
 anymap = { path = "utility/anymap" }
-webgpu = { package = "rendiation-webgpu", path = "platform/graphics/webgpu" }
+webgpu = { package = "rendiation-webgpu", path = "platform/webgpu/core" }
 arena = { path = "utility/arena" }
 auto-shrink-arena = { path = "utility/auto-shrink-arena" }
 database = { path = "utility/database" }
@@ -245,13 +245,13 @@ rendiation-view-dependent-transform = { path = "extension/view-dependent-transfo
 rendiation-view-override-model = { path = "extension/view-override-model" }
 rendiation-viewer = { path = "application/viewer" }
 rendiation-viewer-content = { path = "application/viewer-content", default-features = false }
-rendiation-webgpu = { path = "platform/graphics/webgpu" }
-rendiation-webgpu-buffer-allocator = { path = "platform/graphics/webgpu-buffer-allocator" }
-rendiation-webgpu-frame = { path = "platform/graphics/webgpu-frame" }
-rendiation-webgpu-hook-utils = { path = "platform/graphics/webgpu-hook-utils" }
-rendiation-webgpu-midc-downgrade = { path = "platform/graphics/webgpu-midc-downgrade" }
-rendiation-webgpu-texture-as-buffer = { path = "platform/graphics/webgpu-texture-as-buffer" }
-rendiation-webgpu-virtual-typed-combine-buffer = { path = "platform/graphics/webgpu-virtual-typed-combine-buffer" }
+rendiation-webgpu = { path = "platform/webgpu/core" }
+rendiation-webgpu-buffer-allocator = { path = "platform/webgpu/buffer-allocator" }
+rendiation-webgpu-frame = { path = "platform/webgpu/frame" }
+rendiation-webgpu-hook-utils = { path = "platform/webgpu/hook-utils" }
+rendiation-webgpu-midc-downgrade = { path = "platform/webgpu/midc-downgrade" }
+rendiation-webgpu-texture-as-buffer = { path = "platform/webgpu/texture-as-buffer" }
+rendiation-webgpu-virtual-typed-combine-buffer = { path = "platform/webgpu/virtual-typed-combine-buffer" }
 rendiation-wide-line = { path = "extension/wide-line" }
 rendiation-wide-styled-points = { path = "extension/wide-styled-points" }
 rendiation-xtask = { path = "xtask" }
