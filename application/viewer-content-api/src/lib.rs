@@ -1,6 +1,5 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use core::slice;
 use std::{ffi::c_void, num::NonZeroIsize, sync::Arc};
 
 use fast_hash_collection::FastHashMap;
@@ -12,7 +11,7 @@ mod c_api;
 pub use c_api::*;
 mod cx;
 use cx::*;
-pub use wgpu_types::TextureFormat;
+use wgpu_types::TextureFormat;
 
 mod trace;
 use trace::*;

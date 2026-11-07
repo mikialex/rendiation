@@ -58,8 +58,21 @@ pub struct IndexValueChange<T> {
 /// todo, implement some kind of version token to check the quality
 #[derive(Serialize, Deserialize)]
 #[derive(Default, Facet)]
+#[facet(proxy = Arc<T>)]
 pub struct ExternalRefPtr<T> {
   pub ptr: Arc<T>,
+}
+
+/// the proxy makes the reflection based consumers see the pointee directly
+impl<T> From<Arc<T>> for ExternalRefPtr<T> {
+  fn from(ptr: Arc<T>) -> Self {
+    Self { ptr }
+  }
+}
+impl<T> From<&ExternalRefPtr<T>> for Arc<T> {
+  fn from(v: &ExternalRefPtr<T>) -> Self {
+    v.ptr.clone()
+  }
 }
 
 impl<T> ExternalRefPtr<T> {

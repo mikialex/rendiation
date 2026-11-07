@@ -12,5 +12,9 @@ db_save.bin
 /viewer_init_config.json
 /viewer_app_init_config.json
 
+# generated c api headers
+/application/viewer-content-api/bindings.h
+/application/viewer-content-api/rdb.h
+
 # ray tracing test output images
 /shader/ray-tracing/*.pbm

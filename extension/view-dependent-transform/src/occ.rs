@@ -237,7 +237,7 @@ impl OccStyleViewDepConfig {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Facet, PartialEq)]
 pub struct OccStyleViewDepConfig {
   pub transform_ty: OccStyleTransform,
-  #[facet(opaque)]
+  #[facet(opaque, proxy = u32)]
   pub mode: OccStyleMode,
   pub local_mat: Option<Mat4<f32>>,
 }
@@ -247,8 +247,32 @@ pub struct OccStyleViewDepConfig {
 pub struct OccStyleTransform {
   pub anchor_point: Vec3<f32>,
   pub offset: Vec2<i32>,
-  #[facet(opaque)]
+  #[facet(opaque, proxy = u32)]
   pub corner: OccStyleCorner,
+}
+
+/// the bits are used as the facet proxy, see [OccStyleViewDepConfig::mode]
+impl From<u32> for OccStyleMode {
+  fn from(bits: u32) -> Self {
+    Self::from_bits_retain(bits)
+  }
+}
+impl From<&OccStyleMode> for u32 {
+  fn from(mode: &OccStyleMode) -> Self {
+    mode.bits()
+  }
+}
+
+/// the bits are used as the facet proxy, see [OccStyleTransform::corner]
+impl From<u32> for OccStyleCorner {
+  fn from(bits: u32) -> Self {
+    Self::from_bits_retain(bits)
+  }
+}
+impl From<&OccStyleCorner> for u32 {
+  fn from(corner: &OccStyleCorner) -> Self {
+    corner.bits()
+  }
 }
 
 bitflags! {

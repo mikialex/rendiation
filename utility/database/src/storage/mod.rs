@@ -27,7 +27,7 @@ pub trait DataBaseDataType: CValue + Default {
   /// formats are recommended for performance.
   #[must_use]
   fn deserialize_from_reader(&mut self, source: &mut (impl std::io::Read + ?Sized)) -> Option<()>;
-  fn shape() -> &'static facet::Shape<'static>;
+  fn shape() -> &'static facet::Shape;
 }
 
 pub type DatabaseSerializedFieldBuffer = smallvec::SmallVec<[u8; 16]>;
@@ -73,7 +73,7 @@ pub trait DynDataBaseDataType {
     target
   }
 
-  fn shape(&self) -> &'static facet::Shape<'static>;
+  fn shape(&self) -> &'static facet::Shape;
   /// this function will be removed in the future.
   fn debug_value(&self) -> String;
 }
@@ -87,7 +87,7 @@ impl<T: DataBaseDataType> DynDataBaseDataType for T {
     self.deserialize_from_reader(source)
   }
 
-  fn shape(&self) -> &'static facet::Shape<'static> {
+  fn shape(&self) -> &'static facet::Shape {
     T::shape()
   }
 
@@ -111,7 +111,7 @@ where
     Some(())
   }
 
-  fn shape() -> &'static facet::Shape<'static> {
+  fn shape() -> &'static facet::Shape {
     T::SHAPE
   }
 }
@@ -150,7 +150,7 @@ pub struct DataTypeMetaInfo {
   /// Same as [Self::create_dyn_data_ptr_readonly], but returns a mutable dyn pointer.
   pub create_dyn_data_ptr: unsafe fn(DataMutPtr) -> *mut dyn DynDataBaseDataType,
   /// The reflection info of `T`, using the facet crate.
-  pub shape: &'static facet::Shape<'static>,
+  pub shape: &'static facet::Shape,
   /// `T`'s [std::any::TypeId].
   pub data_type_id: TypeId,
 }

@@ -1,0 +1,17 @@
+[package]
+edition = "2024"
+name = "database-ffi"
+version = "0.0.1"
+
+[dependencies]
+database = { workspace = true }
+facet = { workspace = true }
+facet-reflect = { workspace = true }
+fast-hash-collection = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+
+[lints]
+workspace = true

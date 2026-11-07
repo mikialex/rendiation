@@ -46,6 +46,22 @@ impl ComponentUntyped {
 
     view
   }
+
+  /// Write a single value, return false if the entity is not alive.
+  ///
+  /// # Safety
+  ///
+  /// `new` must point to a valid value of this component's data type.
+  pub unsafe fn write_single_checked(&self, idx: RawEntityHandle, new: DataPtr) -> bool {
+    // see [Table::allocator] for the lock order
+    let allocator = self.allocator.make_read_holder();
+    if allocator.get(idx.0).is_none() {
+      return false;
+    }
+    let mut view = self.write_untyped();
+    unsafe { view.write(idx, new) };
+    true
+  }
 }
 
 pub type ChangeDataPtrPair<'a> = (DataPtr, &'a dyn DynDataBaseDataType);

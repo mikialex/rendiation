@@ -49,9 +49,9 @@ use wgpu_types::*;
 pub use wgpu_types::{BlendState, DepthBiasState, Face, FrontFace};
 #[derive(Facet, Serialize, Deserialize)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[facet(proxy = RasterizationStatesReflect)]
 pub struct RasterizationStates {
   pub depth_write_enabled: bool,
-  #[facet(opaque)]
   pub depth_compare: SemanticCompareFunction,
   #[facet(opaque)]
   pub stencil: StencilState,
@@ -85,8 +85,8 @@ impl Default for RasterizationStates {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Facet)]
 pub enum SemanticCompareFunction {
   /// Function never passes
   Never = 1,
@@ -97,6 +97,7 @@ pub enum SemanticCompareFunction {
   /// output as `@invariant` to prevent artifacting.
   Equal = 3,
   /// Function passes if new value is near than or equal to existing value
+  #[default]
   NearerEqual = 4,
   /// Function passes if new value is further than existing value
   Further = 5,

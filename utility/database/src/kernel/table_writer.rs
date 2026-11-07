@@ -94,6 +94,10 @@ impl TableWriterUntyped {
       .map(|(_, v)| v)
   }
 
+  pub fn is_alive(&self, handle: RawEntityHandle) -> bool {
+    self.allocator.contains(handle.0)
+  }
+
   pub fn notify_reserve_changes(&mut self, count: usize) {
     self
       .entity_watchers

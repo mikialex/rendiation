@@ -71,9 +71,37 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
 pub struct GPUBufferImage {
   /// pixel maybe padded. does not contains per row padding
   pub data: Vec<u8>,
-  #[facet(opaque)]
+  #[facet(opaque, proxy = TextureFormatName)]
   pub format: TextureFormat,
   pub size: Size,
+}
+
+/// The WebGPU name of a [TextureFormat], for example `rgba8unorm-srgb`, used as the facet proxy
+/// of the format so that the reflection based consumers (for example the C ffi) can see it.
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[facet(transparent)]
+pub struct TextureFormatName(pub String);
+
+impl Default for TextureFormatName {
+  fn default() -> Self {
+    (&TextureFormat::Rgba8UnormSrgb).into()
+  }
+}
+
+impl From<&TextureFormat> for TextureFormatName {
+  fn from(format: &TextureFormat) -> Self {
+    match serde_json::to_value(format) {
+      Ok(serde_json::Value::String(name)) => Self(name),
+      _ => unreachable!("texture format is serialized as string"),
+    }
+  }
+}
+
+impl TryFrom<TextureFormatName> for TextureFormat {
+  type Error = String;
+  fn try_from(name: TextureFormatName) -> Result<Self, Self::Error> {
+    serde_json::from_value(serde_json::Value::String(name.0)).map_err(|e| e.to_string())
+  }
 }
 
 impl GPUBufferImage {

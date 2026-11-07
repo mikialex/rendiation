@@ -12,7 +12,7 @@ use auto_shrink_arena::*;
 use bytemuck::*;
 use dyn_clone::*;
 use event_source::*;
-pub use facet::*;
+pub use facet::{self, Facet};
 use fast_hash_collection::*;
 use futures::{Stream, task::AtomicWaker};
 use parking_lot::RwLock;

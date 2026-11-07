@@ -17,6 +17,7 @@ members = [
   "utility/uri-streaming",
   "utility/hierarchy-reducer",
   "utility/database",
+  "utility/database-ffi",
   "utility/database-tracing",
   "application/viewer-content-api-trace-info",
   "utility/heap-tools",
@@ -112,7 +113,8 @@ resolver = "2"
 # https://rust-lang.github.io/rfcs/2906-cargo-workspace-deduplicate.html
 [workspace.dependencies]
 serde = { version = "1", features = ["derive", "rc"] }
-facet = "0.27.16"
+facet = { version = "0.46.5", features = ["nonzero"] }
+facet-reflect = "0.46.5"
 rayon = "1.7.0"
 slab = "0.4.11"
 bitflags = "2.2"
@@ -159,6 +161,7 @@ webgpu = { package = "rendiation-webgpu", path = "platform/webgpu/core" }
 arena = { path = "utility/arena" }
 auto-shrink-arena = { path = "utility/auto-shrink-arena" }
 database = { path = "utility/database" }
+database-ffi = { path = "utility/database-ffi" }
 database-tracing = { path = "utility/database-tracing" }
 dynamic-bvh = { path = "extension/dynamic-bvh" }
 event-source = { path = "utility/event-source" }

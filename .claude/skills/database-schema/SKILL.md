@@ -244,6 +244,18 @@ The hook system in `utility/database/src/hook/` provides reactive queries for in
 
 These are used by the scene layer to derive world transforms, propagate visibility, and compute bounding volumes incrementally.
 
+## C/C++ access by reflection (utility/database-ffi)
+
+Column data types are reflected by their facet `Shape` (the `Facet` derive required by `DataBaseDataType`), so the database can be exposed to C without writing per component ffi code:
+
+- `FfiSchema::from_database(&db)` walks all tables/components and maps every data type to a C layout (`CType`): primitives, arrays, structs (any repr, fields are laid out by C rules), `Option<T>` as `{ bool has_value; T value; }`, enums with explicit repr (field-less as `enum class : uint32_t`, others as `{ Tag tag; union payload; }`), transparent wrappers like `NonZero`, `RawEntityHandle`, `String` as `Str { ptr, len }`, `Vec<T>` as `Slice<T> { ptr, len }` (bulk copied when the element layout is identical), and smart pointers (`Arc`/`Box`) as their pointee. Types that can not be mapped are listed in `FfiSchema::unsupported` (currently none).
+- Facet proxies (`#[facet(proxy = P)]` on a container, or `#[facet(opaque, proxy = P)]` on a field) are respected, C sees the proxy type. This is how foreign types without `Facet` are exposed: `RasterizationStates` uses `RasterizationStatesReflect` (mirrors of the wgpu types in `scene/core/src/model_reflect.rs`), `GPUBufferImage::format` uses `TextureFormatName`, the bitflags use `u32`, and `ExternalRefPtr<T>` uses `Arc<T>`.
+- Entities and components are addressed by `stable_hash(unique_name)`, so renaming or moving a component type changes its key.
+- `write_component` / `read_component` convert values between the C layout and rust by facet-reflect (`Partial` to build, `Peek` to read). The heap parts of a read value are copied into an `FfiArena` that the caller keeps alive (`RdbSnapshot` in the C api). Invalid C values (bool not 0/1, unknown enum tag, zero for `NonZero`, invalid utf8, rejected proxy conversion) are rejected with `FfiStatus::InvalidValue`.
+- `generate_cpp_header` emits a typed C++ header (entity tags, value types with layout `static_assert`s, component descriptors and `create/destroy/write/read` templates, the RAII `Snapshot`) on top of the type erased `rdb_*` entry points, see `application/viewer-content-api/src/c_api/rdb.rs`.
+
+When adding a component data type: give enums an explicit `#[repr(..)]`, and for a field of a foreign type without `Facet`, use `#[facet(opaque, proxy = P)]` with a reflectable `P` instead of plain `#[facet(opaque)]` (a plain opaque field makes the whole component unsupported). The field level proxy's `Default` must be a valid value, it is used by the ffi roundtrip test.
+
 ## Pattern reference
 
 ```rust

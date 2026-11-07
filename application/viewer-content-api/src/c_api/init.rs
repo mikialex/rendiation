@@ -21,13 +21,19 @@ pub extern "C" fn rendiation_init(trace_write_path: *const c_char) {
     .filter_module("wgpu_hal::dx12::device", log::LevelFilter::Warn)
     .init();
 
+  setup_api_database();
+
+  setup_tracing(trace_write_path);
+}
+
+pub(crate) fn setup_api_database() {
   setup_global_database(Default::default());
   global_database().enable_label_for_all_entity();
 
   register_viewer_content_data_model();
   global_entity_of::<SceneModelEntity>().declare_component::<SceneModelIsInfinity>();
 
-  setup_tracing(trace_write_path);
+  setup_rdb_schema();
 }
 
 fn on_panic(panic: &PanicHookInfo) {

@@ -5,21 +5,19 @@ name = "viewer-content-api"
 version = "0.1.0"
 
 [lib]
-crate-type = ["cdylib"]
+# rlib is for the examples
+crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
 env_logger = { workspace = true }
 futures = { workspace = true }
 pollster = { workspace = true }
-bytemuck = { workspace = true }
 log = { workspace = true }
 fast-hash-collection = { workspace = true }
 rendiation-viewer-content = { workspace = true }
 
-# these dep declare are necessary as we are export c type from them
-rendiation-mesh-core = { workspace = true }
-rendiation-text-3d = { workspace = true }
+# this dep declare is necessary as we are export c type from it
 rendiation-texture-gpu-process = { workspace = true }
 rendiation-dynamic-bvh-scene = { workspace = true }
 rendiation-webgpu = { workspace = true }
@@ -28,6 +26,7 @@ wgpu-types = { workspace = true }
 ordered-float = "4.6"
 
 database = { workspace = true }
+database-ffi = { workspace = true }
 database-tracing = { workspace = true }
 viewer-content-api-trace-info = { workspace = true }
 

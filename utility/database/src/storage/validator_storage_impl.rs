@@ -28,7 +28,11 @@ where
     TypeId::of::<T>(),
     "data_type_id must match T"
   );
-  assert_eq!(meta.shape, T::shape(), "shape must match T");
+  assert_eq!(
+    meta.shape,
+    <T as DataBaseDataType>::shape(),
+    "shape must match T"
+  );
 
   // Helpers for converting between &T and DataPtr.
   let read = |ptr: DataPtr| -> T { unsafe { (*(ptr as *const T)).clone() } };
